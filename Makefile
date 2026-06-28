@@ -108,13 +108,13 @@ POINTER_CONSTRAINTS_XML = $(WLPROTO)/unstable/pointer-constraints/pointer-constr
 XDG_SHELL_XML = $(WLPROTO)/stable/xdg-shell/xdg-shell.xml
 
 protocols/cursor-shape-v1-protocol.h: $(CURSOR_SHAPE_XML)
-	$(SCANNER) enum-header $< $@
+	$(SCANNER) server-header $< $@
 
 protocols/pointer-constraints-unstable-v1-protocol.h: $(POINTER_CONSTRAINTS_XML)
-	$(SCANNER) enum-header $< $@
+	$(SCANNER) server-header $< $@
 
 protocols/wlr-layer-shell-unstable-v1-protocol.h: protocols/wlr-layer-shell-unstable-v1.xml
-	$(SCANNER) enum-header $< $@
+	$(SCANNER) server-header $< $@
 
 protocols/wlr-output-power-management-unstable-v1-protocol.h: protocols/wlr-output-power-management-unstable-v1.xml
 	$(SCANNER) server-header $< $@
