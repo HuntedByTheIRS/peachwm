@@ -4003,6 +4003,7 @@ int main(int argc, char *argv[]) {
       break;
     case 'v':
       die("peachwm " VERSION);
+      break;
     default:
       goto usage;
     }

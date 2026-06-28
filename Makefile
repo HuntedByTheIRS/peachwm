@@ -5,15 +5,17 @@ VERSION = `git describe --tags --dirty 2>/dev/null || echo 0.2`
 PREFIX  = /usr/local
 PKG_CONFIG = pkg-config
 
-# Auto-detect compiler: TCC > Clang > GCC
-ifeq ($(shell which tcc 2>/dev/null),)
-  ifeq ($(shell which clang 2>/dev/null),)
-    CC = gcc
+# Auto-detect compiler: TCC > Clang > GCC (only if CC not set)
+ifeq ($(origin CC),default)
+  ifeq ($(shell which tcc 2>/dev/null),)
+    ifeq ($(shell which clang 2>/dev/null),)
+      CC = gcc
+    else
+      CC = clang
+    endif
   else
-    CC = clang
+    CC = tcc
   endif
-else
-  CC = tcc
 endif
 
 # Uncomment to build without XWayland support
@@ -46,6 +48,11 @@ all: peachwm smsg/smsg
 
 package:
 	$(MAKE) MARCH=
+
+release: CC = clang
+release: CFLAGS += -Werror -Wpedantic -Wmissing-prototypes -Wstrict-prototypes \
+	-Wold-style-definition -Wmissing-declarations -Wimplicit-fallthrough
+release: peachwm smsg/smsg
 
 # Compositor
 
