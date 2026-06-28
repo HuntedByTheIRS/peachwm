@@ -9,6 +9,7 @@ on:
 jobs:
   build-test:
     runs-on: ubuntu-24.04
+    container: archlinux:latest
 
     steps:
     - name: Checkout Code
@@ -16,20 +17,21 @@ jobs:
 
     - name: Install System Dependencies
       run: |
-        sudo apt-get update
-        sudo apt-get install -y \
-          build-essential \
+        pacman -Syu --noconfirm
+        pacman -S --noconfirm --needed \
+          base-devel \
+          git \
           tcc \
           clang \
           pkg-config \
+          wayland \
           wayland-protocols \
-          libwayland-dev \
-          libwlroots-dev \
-          libxkbcommon-dev \
-          libinput-dev \
-          liblua5.4-dev \
-          libxcb1-dev \
-          libxcb-icccm4-dev
+          wlroots \
+          libxkbcommon \
+          libinput \
+          lua \
+          libxcb \
+          xcb-util-wm
 
     - name: Test 'make debug' (Clang + Sanitizers)
       run: |
