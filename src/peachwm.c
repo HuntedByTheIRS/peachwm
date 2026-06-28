@@ -182,6 +182,12 @@ typedef struct {
 } KeyboardGroup;
 
 typedef struct {
+  struct wlr_input_device *device;
+  struct wl_list link;
+  struct wl_listener destroy;
+} PointerDevice;
+
+typedef struct {
   /* Must keep this field first */
   unsigned int type; /* LayerShell */
 
@@ -457,6 +463,7 @@ static struct wlr_session_lock_v1 *cur_lock;
 
 static struct wlr_seat *seat;
 static KeyboardGroup *kb_group;
+static struct wl_list pointer_devices;
 static unsigned int cursor_mode;
 static Client *grabc;
 static int grabcx, grabcy; /* client-relative */
@@ -1301,8 +1308,21 @@ void createnotify(struct wl_listener *listener, void *data) {
   LISTEN(&toplevel->events.set_title, &c->set_title, updatetitle);
 }
 
+static void pointer_device_destroy(struct wl_listener *listener, void *data) {
+  PointerDevice *pdev = wl_container_of(listener, pdev, destroy);
+  wl_list_remove(&pdev->link);
+  wl_list_remove(&pdev->destroy.link);
+  free(pdev);
+}
+
 void createpointer(struct wlr_pointer *pointer) {
   struct libinput_device *device;
+  PointerDevice *pdev = ecalloc(1, sizeof(*pdev));
+  pdev->device = &pointer->base;
+  pdev->destroy.notify = pointer_device_destroy;
+  wl_signal_add(&pointer->base.events.destroy, &pdev->destroy);
+  wl_list_insert(&pointer_devices, &pdev->link);
+
   if (wlr_input_device_is_libinput(&pointer->base) &&
       (device = wlr_libinput_get_device_handle(&pointer->base))) {
 
@@ -2806,17 +2826,84 @@ void setsel(struct wl_listener *listener, void *data) {
   wlr_seat_set_selection(seat, event->source, event->serial);
 }
 
+/* Re-apply input settings from newcfg to all connected input devices */
+static void reapply_input_config(const Config *newcfg) {
+	PointerDevice *pdev;
+	struct libinput_device *libinput_device;
+
+	wlr_keyboard_set_repeat_info(&kb_group->wlr_group->keyboard,
+	                             newcfg->input.repeat_rate,
+	                             newcfg->input.repeat_delay);
+
+	wl_list_for_each(pdev, &pointer_devices, link) {
+		if (!wlr_input_device_is_libinput(pdev->device))
+			continue;
+		libinput_device = wlr_libinput_get_device_handle(pdev->device);
+		if (!libinput_device)
+			continue;
+
+		if (libinput_device_config_tap_get_finger_count(libinput_device)) {
+			libinput_device_config_tap_set_enabled(libinput_device,
+				newcfg->input.tap_to_click);
+			libinput_device_config_tap_set_drag_enabled(libinput_device,
+				newcfg->input.tap_and_drag);
+			libinput_device_config_tap_set_drag_lock_enabled(libinput_device,
+				newcfg->input.drag_lock);
+			libinput_device_config_tap_set_button_map(libinput_device,
+				newcfg->input.tap_button_map);
+		}
+
+		if (libinput_device_config_scroll_has_natural_scroll(libinput_device))
+			libinput_device_config_scroll_set_natural_scroll_enabled(
+				libinput_device, newcfg->input.natural_scrolling);
+
+		if (libinput_device_config_dwt_is_available(libinput_device))
+			libinput_device_config_dwt_set_enabled(libinput_device,
+				newcfg->input.disable_while_typing);
+
+		if (libinput_device_config_left_handed_is_available(libinput_device))
+			libinput_device_config_left_handed_set(libinput_device,
+				newcfg->input.left_handed);
+
+		if (libinput_device_config_middle_emulation_is_available(libinput_device))
+			libinput_device_config_middle_emulation_set_enabled(libinput_device,
+				newcfg->input.middle_button_emulation);
+
+		if (libinput_device_config_scroll_get_methods(libinput_device) !=
+		    LIBINPUT_CONFIG_SCROLL_NO_SCROLL)
+			libinput_device_config_scroll_set_method(libinput_device,
+				newcfg->input.scroll_method);
+
+		if (libinput_device_config_click_get_methods(libinput_device) !=
+		    LIBINPUT_CONFIG_CLICK_METHOD_NONE)
+			libinput_device_config_click_set_method(libinput_device,
+				newcfg->input.click_method);
+
+		if (libinput_device_config_send_events_get_modes(libinput_device))
+			libinput_device_config_send_events_set_mode(libinput_device,
+				newcfg->input.send_events_mode);
+
+		if (libinput_device_config_accel_is_available(libinput_device)) {
+			libinput_device_config_accel_set_profile(libinput_device,
+				newcfg->input.accel_profile);
+			libinput_device_config_accel_set_speed(libinput_device,
+				newcfg->input.accel_speed);
+		}
+	}
+}
+
 /* Config hot reload callback is fired by the inotify watcher */
 
 static void on_config_reload(const Config *newcfg, void *ud) {
-  Monitor *m;
-  (void)ud;
-  cfg = *newcfg;
-  wl_list_for_each(m, &mons, link) {
-    apply_workspace_layout(m, current_tag_idx(m));
-    arrange(m);
-  }
-  printstatus();
+	Monitor *m;
+	(void)ud;
+	reapply_input_config(newcfg);
+	cfg = *newcfg;
+	wl_list_for_each(m, &mons, link) {
+		apply_workspace_layout(m, current_tag_idx(m));
+		arrange(m);
+	}
+	printstatus();
 }
 
 void setup(void) {
@@ -2956,6 +3043,7 @@ void setup(void) {
   /* Configure a listener to be notified when new outputs are available on the
    * backend. */
   wl_list_init(&mons);
+  wl_list_init(&pointer_devices);
   wl_signal_add(&backend->events.new_output, &new_output);
 
   /* Set up our client lists, the xdg-shell and the layer-shell. The xdg-shell

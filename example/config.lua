@@ -15,8 +15,8 @@ appearance = {
 	fullscreen_bg = 0x000000ff,
 }
 
--- Note: the entire input section requires you to restart
--- the compositor once changed
+-- Input settings can be changed dynamically; the compositor will
+-- re-apply them on save
 input = {
 	repeat_rate = 50,
 	repeat_delay = 150,
