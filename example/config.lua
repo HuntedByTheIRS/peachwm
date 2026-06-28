@@ -47,6 +47,15 @@ monitors = {
 	--   layout = "dwindle", x = -1, y = -1 },
 }
 
+-- Per-workspace default layouts (overrides the monitor layout for a given workspace)
+-- workspaces = {
+--   layouts = {
+--     [1] = { layout = "dwindle" },
+--     [2] = { layout = "master" },
+--     [3] = { layout = "monocle" },
+--   },
+-- }
+
 -- autostart: it starts stuff in sequence
 autostart = {
 	"dbus-update-activation-environment --systemd WAYLAND_DISPLAY XDG_SESSION_TYPE XDG_CURRENT_DESKTOP",

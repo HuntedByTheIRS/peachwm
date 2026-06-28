@@ -523,6 +523,36 @@ static const char *custom_cfg_path;
 #include "ipc.h"
 
 /* function implementations */
+
+/* Apply a workspace default layout for the given tag index (0-based) on monitor
+ * m */
+static void apply_workspace_layout(Monitor *m, int tag_idx) {
+  if (tag_idx < 0 || tag_idx >= TAGCOUNT)
+    return;
+  const char *layout_name = cfg.workspace_layouts[tag_idx];
+  if (!layout_name[0])
+    return;
+
+  for (int li = 0; li < (int)LENGTH(layouts); li++) {
+    if (layouts[li].symbol && !strcmp(layout_name, layouts[li].symbol)) {
+      m->lt[m->sellt] = &layouts[li];
+      break;
+    }
+    if (!strcmp(layout_name, "dwindle") && layouts[li].arrange == dwindle) {
+      m->lt[m->sellt] = &layouts[li];
+      break;
+    }
+    if (!strcmp(layout_name, "master") && layouts[li].arrange == master) {
+      m->lt[m->sellt] = &layouts[li];
+      break;
+    }
+    if (!strcmp(layout_name, "monocle") && layouts[li].arrange == monocle) {
+      m->lt[m->sellt] = &layouts[li];
+      break;
+    }
+  }
+}
+
 void applybounds(Client *c, struct wlr_box *bbox) {
   /* set minimum possible */
   c->geom.width = MAX(1 + 2 * (int)c->bw, c->geom.width);
@@ -1194,6 +1224,8 @@ void createmon(struct wl_listener *listener, void *data) {
           }
         }
         m->lt[1] = &layouts[LENGTH(layouts) > 1 && m->lt[0] != &layouts[1]];
+        /* Apply per-workspace default for the initial tag (workspace 1) */
+        apply_workspace_layout(m, 0);
         strncpy(m->ltsymbol, m->lt[m->sellt]->symbol, LENGTH(m->ltsymbol));
         wlr_output_state_set_scale(&state, r->scale);
         wlr_output_state_set_transform(&state, r->transform);
@@ -2780,7 +2812,10 @@ static void on_config_reload(const Config *newcfg, void *ud) {
   Monitor *m;
   (void)ud;
   cfg = *newcfg;
-  wl_list_for_each(m, &mons, link) arrange(m);
+  wl_list_for_each(m, &mons, link) {
+    apply_workspace_layout(m, current_tag_idx(m));
+    arrange(m);
+  }
   printstatus();
 }
 
@@ -3642,6 +3677,8 @@ void toggleview(const Arg *arg) {
     return;
 
   selmon->tagset[selmon->seltags] = newtagset;
+  /* Apply per-workspace default layout if configured */
+  apply_workspace_layout(selmon, current_tag_idx(selmon));
   focusclient(focustop(selmon), 1);
   arrange(selmon);
   printstatus();
@@ -3816,6 +3853,8 @@ void view(const Arg *arg) {
   selmon->seltags ^= 1; /* toggle sel tagset */
   if (arg->ui & TAGMASK)
     selmon->tagset[selmon->seltags] = arg->ui & TAGMASK;
+  /* Apply per-workspace default layout if configured */
+  apply_workspace_layout(selmon, current_tag_idx(selmon));
   focusclient(focustop(selmon), 1);
   arrange(selmon);
   printstatus();

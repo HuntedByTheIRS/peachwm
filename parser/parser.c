@@ -560,6 +560,36 @@ parse_scrolls(lua_State *L, Config *cfg)
 }
 
 static void
+parse_workspace_layouts(lua_State *L, Config *cfg)
+{
+	lua_getglobal(L, "workspaces");
+	if (!lua_istable(L, -1)) {
+		lua_pop(L, 1);
+		return;
+	}
+
+	lua_getfield(L, -1, "layouts");
+	if (!lua_istable(L, -1)) {
+		lua_pop(L, 2);
+		return;
+	}
+
+	/* Iterate over array-like entries; the numeric key is the workspace number */
+	int n = (int)lua_rawlen(L, -1);
+	for (int ws = 1; ws <= n && ws <= 9; ws++) {
+		lua_rawgeti(L, -1, ws);
+		if (!lua_istable(L, -1)) { lua_pop(L, 1); continue; }
+
+		lua_get_string(L, "layout", cfg->workspace_layouts[ws - 1],
+		               sizeof(cfg->workspace_layouts[ws - 1]));
+
+		lua_pop(L, 1); /* entry table */
+	}
+
+	lua_pop(L, 2); /* layouts + workspaces */
+}
+
+static void
 parse_autostart(lua_State *L, Config *cfg)
 {
 	lua_getglobal(L, "autostart");
@@ -648,6 +678,7 @@ config_load(const char *path, Config *cfg)
 	parse_input     (L, &cfg->input);
 	parse_rules     (L, cfg);
 	parse_monitors  (L, cfg);
+	parse_workspace_layouts(L, cfg);
 	parse_keybinds  (L, cfg);
 	parse_buttons   (L, cfg);
 	parse_scrolls   (L, cfg);

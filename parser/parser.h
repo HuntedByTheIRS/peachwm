@@ -134,6 +134,9 @@ typedef struct {
 
 	CfgAutostart  autostart[CFG_MAX_AUTOSTART];
 	int           nautostart;
+
+	/* Per-workspace (tag) default layouts, indexed by tag index 0-8 */
+	char workspace_layouts[9][CFG_MAX_STRLEN];
 } Config;
 
 /* Public API */
