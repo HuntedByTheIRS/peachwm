@@ -30,6 +30,7 @@ that is designed to be similar to MangoWC, while remaining lightweight.
 - xkbcommon
 - wayland-protocols (compile-time only)
 - pkg-config (compile-time only)
+- a C compiler (clang recommended)
 
 Install these (and their `-devel` versions if your distro has separate
 development packages) and run `make` followed by `doas/sudo make install`,
@@ -46,7 +47,7 @@ but will start without this step if you choose not to.
 ## Installation
 
 ```bash
-make -j$(nproc)
+make release -j$(nproc)
 sudo make install
 mkdir -p $HOME/.config/peachwm/
 cp /etc/peachwm/config.lua $HOME/.config/peachwm/config.lua

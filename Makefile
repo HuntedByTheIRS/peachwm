@@ -30,29 +30,46 @@ PKGS    = wayland-server xkbcommon libinput $(LUA_PKG) $(XLIBS)
 CFLAGS   = `$(PKG_CONFIG) --cflags $(PKGS) wlroots-0.20` \
 	-I. -Iinclude -Isrc -Iparser -Iprotocols \
 	-DWLR_USE_UNSTABLE -D_POSIX_C_SOURCE=200809L -DVERSION=\"$(VERSION)\" \
-	$(XWAYLAND) -g -Wall -Wextra -Wno-unused-parameter -O2 $(MARCH) -std=c11
-
-MARCH = -march=native
+	$(XWAYLAND) -g -Wall -Wextra -Wno-unused-parameter -O2 -std=c11
 LDLIBS   = `$(PKG_CONFIG) --libs $(PKGS) wlroots-0.20` -lm $(LIBS)
 
 SMSG_CFLAGS = `$(PKG_CONFIG) --cflags wayland-client` -Wall -Wextra -Wno-unused-parameter
 SMSG_LDLIBS = `$(PKG_CONFIG) --libs wayland-client`
 
-SCANNER   = `$(PKG_CONFIG) --variable=wayland_scanner wayland-scanner`
-WLPROTO   = `$(PKG_CONFIG) --variable=pkgdatadir wayland-protocols`
+SCANNER   = $(shell $(PKG_CONFIG) --variable=wayland_scanner wayland-scanner)
+WLPROTO   = $(shell $(PKG_CONFIG) --variable=pkgdatadir wayland-protocols)
 
 PROTO_OBJS = protocols/peachwm-ipc-unstable-v2-protocol.o \
 	protocols/ext-workspace-v1-protocol.o
 
 all: peachwm smsg/smsg
 
-package:
-	$(MAKE) MARCH=
-
 release: CC = clang
 release: CFLAGS += -Werror -Wpedantic -Wmissing-prototypes -Wstrict-prototypes \
-	-Wold-style-definition -Wmissing-declarations -Wimplicit-fallthrough
+	-Wold-style-definition -Wmissing-declarations -Wimplicit-fallthrough \
+	-march=native
 release: peachwm smsg/smsg
+
+debug: CC = clang
+debug: CFLAGS += -Werror -Weverything \
+	-Wno-padded -Wno-unsafe-buffer-usage \
+	-Wno-c++-keyword -Wno-reserved-macro-identifier -Wno-reserved-identifier \
+	-Wno-pre-c11-compat -Wno-implicit-void-ptr-cast -Wno-switch-default \
+	-Wno-sign-conversion -Wno-used-but-marked-unused \
+	-Wno-cast-align -Wno-disabled-macro-expansion \
+	-Wno-double-promotion -Wno-bad-function-cast \
+	-Wno-implicit-int-conversion -Wno-shadow \
+	-Wno-declaration-after-statement \
+	-Wno-switch-enum -Wno-implicit-int-enum-cast \
+	-Wno-format-signedness -Wno-cast-qual \
+	-Wno-implicit-int-float-conversion -Wno-unused-macros \
+	-Wno-unreachable-code-break -Wno-missing-format-attribute \
+	-Wno-format-nonliteral -Wno-float-conversion \
+	-Wno-tentative-definition-compat -Wno-missing-variable-declarations \
+	-g3 -fno-omit-frame-pointer -fsanitize=address,undefined,leak \
+	-fsanitize-trap=all
+debug: LDLIBS += -fsanitize=address,undefined,leak
+debug: peachwm smsg/smsg
 
 # Compositor
 
@@ -81,47 +98,51 @@ src/wlr_ext_workspace_v1.o: src/wlr_ext_workspace_v1.c \
 parser/parser.o: parser/parser.c parser/parser.h
 	$(CC) $(CFLAGS) -o $@ -c $<
 
-$(PROTO_OBJS): protocols/%-protocol.o: protocols/%-protocol.c
+$(PROTO_OBJS): protocols/%-protocol.o: protocols/%-protocol.c protocols/%-protocol.h
 	$(CC) $(CFLAGS) -o $@ -c $<
 
 # Protocol headers and glue code
 
-protocols/cursor-shape-v1-protocol.h:
-	$(SCANNER) enum-header $(WLPROTO)/staging/cursor-shape/cursor-shape-v1.xml $@
+CURSOR_SHAPE_XML = $(WLPROTO)/staging/cursor-shape/cursor-shape-v1.xml
+POINTER_CONSTRAINTS_XML = $(WLPROTO)/unstable/pointer-constraints/pointer-constraints-unstable-v1.xml
+XDG_SHELL_XML = $(WLPROTO)/stable/xdg-shell/xdg-shell.xml
 
-protocols/pointer-constraints-unstable-v1-protocol.h:
-	$(SCANNER) enum-header $(WLPROTO)/unstable/pointer-constraints/pointer-constraints-unstable-v1.xml $@
+protocols/cursor-shape-v1-protocol.h: $(CURSOR_SHAPE_XML)
+	$(SCANNER) enum-header $< $@
 
-protocols/wlr-layer-shell-unstable-v1-protocol.h:
-	$(SCANNER) enum-header protocols/wlr-layer-shell-unstable-v1.xml $@
+protocols/pointer-constraints-unstable-v1-protocol.h: $(POINTER_CONSTRAINTS_XML)
+	$(SCANNER) enum-header $< $@
 
-protocols/wlr-output-power-management-unstable-v1-protocol.h:
-	$(SCANNER) server-header protocols/wlr-output-power-management-unstable-v1.xml $@
+protocols/wlr-layer-shell-unstable-v1-protocol.h: protocols/wlr-layer-shell-unstable-v1.xml
+	$(SCANNER) enum-header $< $@
 
-protocols/xdg-shell-protocol.h:
-	$(SCANNER) server-header $(WLPROTO)/stable/xdg-shell/xdg-shell.xml $@
+protocols/wlr-output-power-management-unstable-v1-protocol.h: protocols/wlr-output-power-management-unstable-v1.xml
+	$(SCANNER) server-header $< $@
 
-protocols/peachwm-ipc-unstable-v2-protocol.h:
-	$(SCANNER) server-header protocols/peachwm-ipc-unstable-v2.xml $@
+protocols/xdg-shell-protocol.h: $(XDG_SHELL_XML)
+	$(SCANNER) server-header $< $@
 
-protocols/peachwm-ipc-unstable-v2-protocol.c:
-	$(SCANNER) private-code protocols/peachwm-ipc-unstable-v2.xml $@
+protocols/peachwm-ipc-unstable-v2-protocol.h: protocols/peachwm-ipc-unstable-v2.xml
+	$(SCANNER) server-header $< $@
 
-protocols/ext-workspace-v1-protocol.h:
-	$(SCANNER) server-header protocols/ext-workspace-v1.xml $@
+protocols/peachwm-ipc-unstable-v2-protocol.c: protocols/peachwm-ipc-unstable-v2.xml
+	$(SCANNER) private-code $< $@
 
-protocols/ext-workspace-v1-protocol.c:
-	$(SCANNER) private-code protocols/ext-workspace-v1.xml $@
+protocols/ext-workspace-v1-protocol.h: protocols/ext-workspace-v1.xml
+	$(SCANNER) server-header $< $@
+
+protocols/ext-workspace-v1-protocol.c: protocols/ext-workspace-v1.xml
+	$(SCANNER) private-code $< $@
 
 # smsg IPC client
 
-smsg/peachwm-ipc-unstable-v2-protocol.h:
-	$(SCANNER) client-header protocols/peachwm-ipc-unstable-v2.xml $@
+smsg/peachwm-ipc-unstable-v2-protocol.h: protocols/peachwm-ipc-unstable-v2.xml
+	$(SCANNER) client-header $< $@
 
-smsg/peachwm-ipc-unstable-v2-protocol.c:
-	$(SCANNER) private-code protocols/peachwm-ipc-unstable-v2.xml $@
+smsg/peachwm-ipc-unstable-v2-protocol.c: protocols/peachwm-ipc-unstable-v2.xml
+	$(SCANNER) private-code $< $@
 
-smsg/peachwm-ipc-unstable-v2-protocol.o: smsg/peachwm-ipc-unstable-v2-protocol.c
+smsg/peachwm-ipc-unstable-v2-protocol.o: smsg/peachwm-ipc-unstable-v2-protocol.c smsg/peachwm-ipc-unstable-v2-protocol.h
 	$(CC) $(SMSG_CFLAGS) -o $@ -c $<
 
 smsg/smsg.o: smsg/smsg.c smsg/peachwm-ipc-unstable-v2-protocol.h
