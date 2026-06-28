@@ -208,10 +208,14 @@ typedef struct {
 #endif
 
 static void dwindle(Monitor *m);
+static void master(Monitor *m);
+static void monocle(Monitor *m);
 
 static const Layout layouts[] = {
     {"><>", NULL},
     {"[T]", dwindle},
+    {"[M]", master},
+    {"[]", monocle},
 };
 
 /* dwindle tree */
@@ -515,8 +519,8 @@ static const char *custom_cfg_path;
 
 /* attempt to encapsulate suck into one file */
 #include "client.h"
-#include "ipc.h"
 #include "ext-workspace.h"
+#include "ipc.h"
 
 /* function implementations */
 void applybounds(Client *c, struct wlr_box *bbox) {
@@ -1181,6 +1185,10 @@ void createmon(struct wl_listener *listener, void *data) {
             break;
           }
           if (!strcmp(r->layout, "master") && layouts[li].arrange == master) {
+            m->lt[0] = &layouts[li];
+            break;
+          }
+          if (!strcmp(r->layout, "monocle") && layouts[li].arrange == monocle) {
             m->lt[0] = &layouts[li];
             break;
           }
@@ -3382,8 +3390,8 @@ static void master_arrange(Monitor *m, int ti) {
     int stack_w = MAX(1, aw - master_w - e);
 
     if (master_c && !master_c->isfullscreen)
-      resize(master_c,
-             (struct wlr_box){m->w.x + e, m->w.y + e, master_w, ah}, 0);
+      resize(master_c, (struct wlr_box){m->w.x + e, m->w.y + e, master_w, ah},
+             0);
 
     int sh = MAX(1, (ah - (nstack - 1) * e) / nstack);
     for (int i = 0; i < nstack; i++)
@@ -3401,9 +3409,10 @@ static void master_arrange(Monitor *m, int ti) {
           0);
 
     if (master_c && !master_c->isfullscreen)
-      resize(master_c,
-             (struct wlr_box){m->w.x + e + stack_w + e, m->w.y + e, master_w, ah},
-             0);
+      resize(
+          master_c,
+          (struct wlr_box){m->w.x + e + stack_w + e, m->w.y + e, master_w, ah},
+          0);
   }
 }
 
@@ -3413,14 +3422,12 @@ void master(Monitor *m) {
   int ti = current_tag_idx(m);
   master_arrange(m, ti);
 }
-void
-monocle(Monitor *m) {
+void monocle(Monitor *m) {
   Client *c, *sel = focustop(m);
   int n = 0, e;
 
-  wl_list_for_each(c, &clients, link)
-    if (VISIBLEON(c, m) && !c->isfloating && !c->isfullscreen)
-      n++;
+  wl_list_for_each(c, &clients, link) if (VISIBLEON(c, m) && !c->isfloating &&
+                                          !c->isfullscreen) n++;
 
   if (n == 0)
     return;
