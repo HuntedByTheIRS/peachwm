@@ -1,6 +1,6 @@
-#include "dwl-ipc-unstable-v2-protocol.h"
+#include "peachwm-ipc-unstable-v2-protocol.h"
 
-/* Forward declarations for dwl.c static functions */
+/* Forward declarations for peachwm.c static functions */
 
 static void arrange(Monitor *m);
 static void focusclient(Client *c, int lift);
@@ -60,7 +60,7 @@ ipc_send_output_state(IpcOutput *ipc_out)
 	sel_tags = c ? c->tags : 0;
 
 	/* active */
-	zdwl_ipc_output_v2_send_active(res, m == selmon ? 1 : 0);
+	zpeachwm_ipc_output_v2_send_active(res, m == selmon ? 1 : 0);
 
 	/* per-tag state */
 	for (tag = 0; tag < TAGCOUNT; tag++) {
@@ -76,7 +76,7 @@ ipc_send_output_state(IpcOutput *ipc_out)
 			clients_on_tag = 1; /* report ≥1, not exact count */
 
 		focused = (sel_tags & mask) ? 1 : 0;
-		zdwl_ipc_output_v2_send_tag(res, tag, state, clients_on_tag, focused);
+		zpeachwm_ipc_output_v2_send_tag(res, tag, state, clients_on_tag, focused);
 	}
 
 	/* layout index */
@@ -85,31 +85,31 @@ ipc_send_output_state(IpcOutput *ipc_out)
 		for (i = 0; i < LENGTH(layouts); i++)
 			if (&layouts[i] == m->lt[m->sellt])
 				break;
-		zdwl_ipc_output_v2_send_layout(res, i);
+		zpeachwm_ipc_output_v2_send_layout(res, i);
 	}
 
 	/* layout symbol */
-	zdwl_ipc_output_v2_send_layout_symbol(res, m->ltsymbol);
+	zpeachwm_ipc_output_v2_send_layout_symbol(res, m->ltsymbol);
 
 	/* title/appid/fullscreen/floating */
 	if (c) {
-		zdwl_ipc_output_v2_send_title(res, client_get_title(c));
-		zdwl_ipc_output_v2_send_appid(res, client_get_appid(c));
+		zpeachwm_ipc_output_v2_send_title(res, client_get_title(c));
+		zpeachwm_ipc_output_v2_send_appid(res, client_get_appid(c));
 		if (wl_resource_get_version(res) >= 2) {
-			zdwl_ipc_output_v2_send_fullscreen(res, c->isfullscreen ? 1 : 0);
-			zdwl_ipc_output_v2_send_floating(res, c->isfloating ? 1 : 0);
+			zpeachwm_ipc_output_v2_send_fullscreen(res, c->isfullscreen ? 1 : 0);
+			zpeachwm_ipc_output_v2_send_floating(res, c->isfloating ? 1 : 0);
 		}
 	} else {
-		zdwl_ipc_output_v2_send_title(res, "");
-		zdwl_ipc_output_v2_send_appid(res, "");
+		zpeachwm_ipc_output_v2_send_title(res, "");
+		zpeachwm_ipc_output_v2_send_appid(res, "");
 		if (wl_resource_get_version(res) >= 2) {
-			zdwl_ipc_output_v2_send_fullscreen(res, 0);
-			zdwl_ipc_output_v2_send_floating(res, 0);
+			zpeachwm_ipc_output_v2_send_fullscreen(res, 0);
+			zpeachwm_ipc_output_v2_send_floating(res, 0);
 		}
 	}
 
 	/* frame — signals end of this batch of events */
-	zdwl_ipc_output_v2_send_frame(res);
+	zpeachwm_ipc_output_v2_send_frame(res);
 }
 
 /* Called instead of (or alongside) the old printstatus() */
@@ -128,7 +128,7 @@ ipc_printstatus(void)
 	}
 }
 
-/* zdwl_ipc_output_v2 requests */
+/* zpeachwm_ipc_output_v2 requests */
 
 static void
 ipc_output_handle_release(struct wl_client *client, struct wl_resource *resource)
@@ -190,7 +190,7 @@ ipc_output_handle_set_layout(struct wl_client *client,
 	printstatus();
 }
 
-static const struct zdwl_ipc_output_v2_interface ipc_output_impl = {
+static const struct zpeachwm_ipc_output_v2_interface ipc_output_impl = {
 	.release          = ipc_output_handle_release,
 	.set_tags         = ipc_output_handle_set_tags,
 	.set_client_tags  = ipc_output_handle_set_client_tags,
@@ -205,7 +205,7 @@ ipc_output_destroy(struct wl_resource *resource)
 	free(out);
 }
 
-/* zdwl_ipc_manager_v2 requests */
+/* zpeachwm_ipc_manager_v2 requests */
 
 static void
 ipc_manager_handle_release(struct wl_client *client, struct wl_resource *resource)
@@ -223,7 +223,7 @@ ipc_manager_handle_get_output(struct wl_client *client, struct wl_resource *reso
 
 	IpcOutput *out = ecalloc(1, sizeof(*out));
 	out->mon = m;
-	out->resource = wl_resource_create(client, &zdwl_ipc_output_v2_interface,
+	out->resource = wl_resource_create(client, &zpeachwm_ipc_output_v2_interface,
 			wl_resource_get_version(resource), id);
 	if (!out->resource) {
 		free(out);
@@ -238,7 +238,7 @@ ipc_manager_handle_get_output(struct wl_client *client, struct wl_resource *reso
 		ipc_send_output_state(out);
 }
 
-static const struct zdwl_ipc_manager_v2_interface ipc_manager_impl = {
+static const struct zpeachwm_ipc_manager_v2_interface ipc_manager_impl = {
 	.release    = ipc_manager_handle_release,
 	.get_output = ipc_manager_handle_get_output,
 };
@@ -261,7 +261,7 @@ ipc_bind(struct wl_client *client, void *data, uint32_t version, uint32_t id)
 {
 	IpcManager *mgr = ecalloc(1, sizeof(*mgr));
 	wl_list_init(&mgr->outputs);
-	mgr->resource = wl_resource_create(client, &zdwl_ipc_manager_v2_interface,
+	mgr->resource = wl_resource_create(client, &zpeachwm_ipc_manager_v2_interface,
 			version, id);
 	if (!mgr->resource) {
 		free(mgr);
@@ -273,15 +273,15 @@ ipc_bind(struct wl_client *client, void *data, uint32_t version, uint32_t id)
 	wl_list_insert(&ipc_managers, &mgr->link);
 
 	/* Announce tags and layouts */
-	zdwl_ipc_manager_v2_send_tags(mgr->resource, TAGCOUNT);
+	zpeachwm_ipc_manager_v2_send_tags(mgr->resource, TAGCOUNT);
 	for (uint32_t i = 0; i < LENGTH(layouts); i++)
-		zdwl_ipc_manager_v2_send_layout(mgr->resource, layouts[i].symbol);
+		zpeachwm_ipc_manager_v2_send_layout(mgr->resource, layouts[i].symbol);
 }
 
 static void
 ipc_init(void)
 {
 	wl_list_init(&ipc_managers);
-	ipc_global = wl_global_create(dpy, &zdwl_ipc_manager_v2_interface,
+	ipc_global = wl_global_create(dpy, &zpeachwm_ipc_manager_v2_interface,
 			2, NULL, ipc_bind);
 }

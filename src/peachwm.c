@@ -207,6 +207,13 @@ typedef struct {
 #define TAGCOUNT 9
 #endif
 
+static void dwindle(Monitor *m);
+
+static const Layout layouts[] = {
+    {"><>", NULL},
+    {"[T]", dwindle},
+};
+
 /* dwindle tree */
 typedef struct DwindleNode DwindleNode;
 struct DwindleNode {
@@ -506,11 +513,9 @@ static Config cfg;
 static struct wl_event_source *cfg_watch_src;
 static const char *custom_cfg_path;
 
-#include "config.h"
-
 /* attempt to encapsulate suck into one file */
 #include "client.h"
-#include "dwl-ipc.h"
+#include "ipc.h"
 #include "ext-workspace.h"
 
 /* function implementations */
@@ -1760,7 +1765,7 @@ void inputdevice(struct wl_listener *listener, void *data) {
   }
 
   /* We need to let the wlr_seat know what our capabilities are, which is
-   * communiciated to the client. In dwl we always have a cursor, even if
+   * communiciated to the client. We always have a cursor, even if
    * there are no pointer devices, so we always include that capability. */
   /* TODO do we actually require a cursor? */
   caps = WL_SEAT_CAPABILITY_POINTER;
@@ -2746,7 +2751,7 @@ void setmon(Client *c, Monitor *m, uint32_t newtags) {
 void setpsel(struct wl_listener *listener, void *data) {
   /* This event is raised by the seat when a client wants to set the selection,
    * usually when the user copies something. wlroots allows compositors to
-   * ignore such requests if they so choose, but in dwl we always honor them
+   * ignore such requests if they so choose, but we always honor them
    */
   struct wlr_seat_request_set_primary_selection_event *event = data;
   wlr_seat_set_primary_selection(seat, event->source, event->serial);
@@ -2755,7 +2760,7 @@ void setpsel(struct wl_listener *listener, void *data) {
 void setsel(struct wl_listener *listener, void *data) {
   /* This event is raised by the seat when a client wants to set the selection,
    * usually when the user copies something. wlroots allows compositors to
-   * ignore such requests if they so choose, but in dwl we always honor them
+   * ignore such requests if they so choose, but we always honor them
    */
   struct wlr_seat_request_set_selection_event *event = data;
   wlr_seat_set_selection(seat, event->source, event->serial);
@@ -3039,7 +3044,7 @@ void spawn(const Arg *arg) {
     dup2(STDERR_FILENO, STDOUT_FILENO);
     setsid();
     execvp(((char **)arg->v)[0], (char **)arg->v);
-    die("dwl: execvp %s failed:", ((char **)arg->v)[0]);
+    die("peachwm: execvp %s failed:", ((char **)arg->v)[0]);
   }
 }
 
@@ -3719,7 +3724,7 @@ void updatemons(struct wl_listener *listener, void *data) {
   wlr_scene_node_set_position(&root_bg->node, sgeom.x, sgeom.y);
   wlr_scene_rect_set_size(root_bg, sgeom.width, sgeom.height);
 
-  /* Make sure the clients are hidden when dwl is locked */
+  /* Make sure the clients are hidden when peachwm is locked */
   wlr_scene_node_set_position(&locked_bg->node, sgeom.x, sgeom.y);
   wlr_scene_rect_set_size(locked_bg, sgeom.width, sgeom.height);
 

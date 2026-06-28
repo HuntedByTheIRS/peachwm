@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<protocol name="dwl_ipc_unstable_v2">
+<protocol name="peachwm_ipc_unstable_v2">
   <copyright>
     Copyright (C) 2022 Russell Newcomb
 
@@ -23,10 +23,10 @@
     DEALINGS IN THE SOFTWARE.
   </copyright>
 
-  <interface name="zdwl_ipc_manager_v2" version="2">
-    <description summary="manage dwl state">
+  <interface name="zpeachwm_ipc_manager_v2" version="2">
+    <description summary="manage peachwm state">
       This interface is exposed as a global in the Wayland registry and allows
-      clients to query and set dwl state.
+      clients to query and set peachwm state.
 
       Warning! The protocol described in this file is experimental and
       backward incompatible changes may be made. Backward compatible changes
@@ -39,17 +39,17 @@
     </description>
 
     <request name="release" type="destructor">
-      <description summary="release dwl_ipc_manager">
+      <description summary="release peachwm_ipc_manager">
         Indicates that the client will not use the manager object anymore.
         Objects created through this interface remain valid.
       </description>
     </request>
 
     <request name="get_output">
-      <description summary="get a dwl_ipc_output for a wl_output">
-        Get a dwl_ipc_output for the given wl_output.
+      <description summary="get a peachwm_ipc_output for a wl_output">
+        Get a peachwm_ipc_output for the given wl_output.
       </description>
-      <arg name="id" type="new_id" interface="zdwl_ipc_output_v2"/>
+      <arg name="id" type="new_id" interface="zpeachwm_ipc_output_v2"/>
       <arg name="output" type="object" interface="wl_output"/>
     </request>
 
@@ -69,9 +69,9 @@
     </event>
   </interface>
 
-  <interface name="zdwl_ipc_output_v2" version="2">
-    <description summary="interact with dwl output state">
-      Observe and control a dwl output.
+  <interface name="zpeachwm_ipc_output_v2" version="2">
+    <description summary="interact with peachwm output state">
+      Observe and control a peachwm output.
     </description>
 
     <enum name="tag_state">
@@ -81,8 +81,8 @@
     </enum>
 
     <request name="release" type="destructor">
-      <description summary="release dwl_ipc_output">
-        Indicates that the client will not use the dwl_ipc_output object
+      <description summary="release peachwm_ipc_output">
+        Indicates that the client will not use the peachwm_ipc_output object
         anymore. Objects created through this interface remain valid.
       </description>
     </request>
@@ -111,8 +111,8 @@
     </request>
 
     <event name="toggle_visibility">
-      <description summary="dwl visibility has been toggled">
-        Indicates that dwl visibility has been toggled.
+      <description summary="peachwm visibility has been toggled">
+        Indicates that peachwm visibility has been toggled.
       </description>
     </event>
 

@@ -7,7 +7,7 @@
 #include <sys/socket.h>
 #include <wayland-client.h>
 #include <wayland-util.h>
-#include "dwl-ipc-unstable-v2-protocol.h"
+#include "peachwm-ipc-unstable-v2-protocol.h"
 
 #define die(fmt, ...)	do { fprintf(stderr, fmt "\n", ##__VA_ARGS__); exit(EXIT_FAILURE); } while (0)
 
@@ -53,17 +53,17 @@ static size_t outputcount;
 
 static struct wl_display *display;
 static struct wl_registry *registry;
-static struct zdwl_ipc_manager_v2 *dwl_ipc_manager;
+static struct zpeachwm_ipc_manager_v2 *peachwm_ipc_manager;
 
 static void
-dwl_ipc_tags(void *data, struct zdwl_ipc_manager_v2 *dwl_ipc_manager, uint32_t count)
+peachwm_ipc_tags(void *data, struct zpeachwm_ipc_manager_v2 *peachwm_ipc_manager, uint32_t count)
 {
 	tagcount = count;
 	if (Tflag && mode & GET) printf("%d\n", tagcount);
 }
 
 static void
-dwl_ipc_layout(void *data, struct zdwl_ipc_manager_v2 *dwl_ipc_manager, const char *name)
+peachwm_ipc_layout(void *data, struct zpeachwm_ipc_manager_v2 *peachwm_ipc_manager, const char *name)
 {
 	if (lflag && mode & SET && strcmp(layout_name, name) == 0)
 		layout_idx = layoutcount;
@@ -71,13 +71,13 @@ dwl_ipc_layout(void *data, struct zdwl_ipc_manager_v2 *dwl_ipc_manager, const ch
 	layoutcount++;
 }
 
-static const struct zdwl_ipc_manager_v2_listener dwl_ipc_listener = {
-	.tags = dwl_ipc_tags,
-	.layout = dwl_ipc_layout
+static const struct zpeachwm_ipc_manager_v2_listener peachwm_ipc_listener = {
+	.tags = peachwm_ipc_tags,
+	.layout = peachwm_ipc_layout
 };
 
 static void
-dwl_ipc_output_toggle_visibility(void *data, struct zdwl_ipc_output_v2 *dwl_ipc_output)
+peachwm_ipc_output_toggle_visibility(void *data, struct zpeachwm_ipc_output_v2 *peachwm_ipc_output)
 {
 	if (!vflag) return;
 	char *oname = data;
@@ -86,7 +86,7 @@ dwl_ipc_output_toggle_visibility(void *data, struct zdwl_ipc_output_v2 *dwl_ipc_
 }
 
 static void
-dwl_ipc_output_active(void *data, struct zdwl_ipc_output_v2 *dwl_ipc_output,
+peachwm_ipc_output_active(void *data, struct zpeachwm_ipc_output_v2 *peachwm_ipc_output,
 	uint32_t active)
 {
 	if (active && (!output_name || !*output_name))
@@ -102,12 +102,12 @@ dwl_ipc_output_active(void *data, struct zdwl_ipc_output_v2 *dwl_ipc_output,
 }
 
 static void
-dwl_ipc_output_tag(void *data, struct zdwl_ipc_output_v2 *dwl_ipc_output,
+peachwm_ipc_output_tag(void *data, struct zpeachwm_ipc_output_v2 *peachwm_ipc_output,
 	uint32_t tag, uint32_t state, uint32_t clients, uint32_t focused)
 {
 	if (!tflag) return;
-	if (state != ZDWL_IPC_OUTPUT_V2_TAG_STATE_NONE) seltags |= 1<<tag;
-	if (state == ZDWL_IPC_OUTPUT_V2_TAG_STATE_ACTIVE) urg |= 1<<tag;
+	if (state != ZPEACHWM_IPC_OUTPUT_V2_TAG_STATE_NONE) seltags |= 1<<tag;
+	if (state == ZPEACHWM_IPC_OUTPUT_V2_TAG_STATE_ACTIVE) urg |= 1<<tag;
 	if (clients > 0) occ |= 1<<tag;
 	if (!(mode & GET)) return;
 	if (data) printf("%s ", (char *)data);
@@ -115,13 +115,13 @@ dwl_ipc_output_tag(void *data, struct zdwl_ipc_output_v2 *dwl_ipc_output,
 }
 
 static void
-dwl_ipc_output_layout(void *data, struct zdwl_ipc_output_v2 *dwl_ipc_output,
+peachwm_ipc_output_layout(void *data, struct zpeachwm_ipc_output_v2 *peachwm_ipc_output,
 	uint32_t layout)
 {
 }
 
 static void
-dwl_ipc_output_layout_symbol(void *data, struct zdwl_ipc_output_v2 *dwl_ipc_output,
+peachwm_ipc_output_layout_symbol(void *data, struct zpeachwm_ipc_output_v2 *peachwm_ipc_output,
 	const char *layout)
 {
 	if (!(lflag && mode & GET)) return;
@@ -130,7 +130,7 @@ dwl_ipc_output_layout_symbol(void *data, struct zdwl_ipc_output_v2 *dwl_ipc_outp
 }
 
 static void
-dwl_ipc_output_title(void *data, struct zdwl_ipc_output_v2 *dwl_ipc_output,
+peachwm_ipc_output_title(void *data, struct zpeachwm_ipc_output_v2 *peachwm_ipc_output,
 	const char *title)
 {
 	if (!(cflag && mode & GET)) return;
@@ -139,7 +139,7 @@ dwl_ipc_output_title(void *data, struct zdwl_ipc_output_v2 *dwl_ipc_output,
 }
 
 static void
-dwl_ipc_output_appid(void *data, struct zdwl_ipc_output_v2 *dwl_ipc_output,
+peachwm_ipc_output_appid(void *data, struct zpeachwm_ipc_output_v2 *peachwm_ipc_output,
 	const char *appid)
 {
 	if (!(cflag && mode & GET)) return;
@@ -148,7 +148,7 @@ dwl_ipc_output_appid(void *data, struct zdwl_ipc_output_v2 *dwl_ipc_output,
 }
 
 static void
-dwl_ipc_output_fullscreen(void *data, struct zdwl_ipc_output_v2 *dwl_ipc_output,
+peachwm_ipc_output_fullscreen(void *data, struct zpeachwm_ipc_output_v2 *peachwm_ipc_output,
 	uint32_t is_fullscreen)
 {
 	if (!mflag) return;
@@ -157,7 +157,7 @@ dwl_ipc_output_fullscreen(void *data, struct zdwl_ipc_output_v2 *dwl_ipc_output,
 }
 
 static void
-dwl_ipc_output_floating(void *data, struct zdwl_ipc_output_v2 *dwl_ipc_output,
+peachwm_ipc_output_floating(void *data, struct zpeachwm_ipc_output_v2 *peachwm_ipc_output,
 	uint32_t is_floating)
 {
 	if (!fflag) return;
@@ -166,7 +166,7 @@ dwl_ipc_output_floating(void *data, struct zdwl_ipc_output_v2 *dwl_ipc_output,
 }
 
 static void
-dwl_ipc_output_frame(void *data, struct zdwl_ipc_output_v2 *dwl_ipc_output)
+peachwm_ipc_output_frame(void *data, struct zpeachwm_ipc_output_v2 *peachwm_ipc_output)
 {
 	if (mode & SET) {
 		if (data && !(output_name && strcmp(output_name, (char *)data) == 0)) return;
@@ -180,7 +180,7 @@ dwl_ipc_output_frame(void *data, struct zdwl_ipc_output_v2 *dwl_ipc_output)
 			}
 			if (layout_idx >= layoutcount)
 				die("bad layout %s", layout_name);
-			zdwl_ipc_output_v2_set_layout(dwl_ipc_output, layout_idx);
+			zpeachwm_ipc_output_v2_set_layout(peachwm_ipc_output, layout_idx);
 		}
 		if (tflag) {
 			uint32_t mask = seltags;
@@ -214,7 +214,7 @@ dwl_ipc_output_frame(void *data, struct zdwl_ipc_output_v2 *dwl_ipc_output)
 
 			if (i > tagcount) die("bad tagset %s", tagset);
 
-			zdwl_ipc_output_v2_set_tags(dwl_ipc_output, mask, toggle);
+			zpeachwm_ipc_output_v2_set_tags(peachwm_ipc_output, mask, toggle);
 		}
 		if (cflag) {
 			uint32_t and = ~0, xor = 0;
@@ -245,7 +245,7 @@ dwl_ipc_output_frame(void *data, struct zdwl_ipc_output_v2 *dwl_ipc_output)
 			}
 			if (i > tagcount) die("bad client tagset %s", client_tags);
 
-			zdwl_ipc_output_v2_set_client_tags(dwl_ipc_output, and, xor);
+			zpeachwm_ipc_output_v2_set_client_tags(peachwm_ipc_output, and, xor);
 		}
 		wl_display_flush(display);
 		exit(0);
@@ -261,17 +261,17 @@ dwl_ipc_output_frame(void *data, struct zdwl_ipc_output_v2 *dwl_ipc_output)
 	fflush(stdout);
 }
 
-static const struct zdwl_ipc_output_v2_listener dwl_ipc_output_listener = {
-	.toggle_visibility = dwl_ipc_output_toggle_visibility,
-	.active = dwl_ipc_output_active,
-	.tag = dwl_ipc_output_tag,
-	.layout = dwl_ipc_output_layout,
-	.title = dwl_ipc_output_title,
-	.appid = dwl_ipc_output_appid,
-	.layout_symbol = dwl_ipc_output_layout_symbol,
-	.fullscreen = dwl_ipc_output_fullscreen,
-	.floating = dwl_ipc_output_floating,
-	.frame = dwl_ipc_output_frame,
+static const struct zpeachwm_ipc_output_v2_listener peachwm_ipc_output_listener = {
+	.toggle_visibility = peachwm_ipc_output_toggle_visibility,
+	.active = peachwm_ipc_output_active,
+	.tag = peachwm_ipc_output_tag,
+	.layout = peachwm_ipc_output_layout,
+	.title = peachwm_ipc_output_title,
+	.appid = peachwm_ipc_output_appid,
+	.layout_symbol = peachwm_ipc_output_layout_symbol,
+	.fullscreen = peachwm_ipc_output_fullscreen,
+	.floating = peachwm_ipc_output_floating,
+	.frame = peachwm_ipc_output_frame,
 };
 
 static void
@@ -287,10 +287,10 @@ wl_output_name(void *data, struct wl_output *output, const char *name)
 		wl_output_release(output);
 		return;
 	}
-	if (dwl_ipc_manager) {
-		struct zdwl_ipc_output_v2 *dwl_ipc_output =
-			zdwl_ipc_manager_v2_get_output(dwl_ipc_manager, output);
-		zdwl_ipc_output_v2_add_listener(dwl_ipc_output, &dwl_ipc_output_listener,
+	if (peachwm_ipc_manager) {
+		struct zpeachwm_ipc_output_v2 *peachwm_ipc_output =
+			zpeachwm_ipc_manager_v2_get_output(peachwm_ipc_manager, output);
+		zpeachwm_ipc_output_v2_add_listener(peachwm_ipc_output, &peachwm_ipc_output_listener,
 				output_name && *output_name ? NULL : strdup(name));
 	}
 }
@@ -344,10 +344,10 @@ global_add(void *data, struct wl_registry *wl_registry,
 		}
 		outputs[outputcount].name = name;
 		outputcount++;
-	} else if (strcmp(interface, zdwl_ipc_manager_v2_interface.name) == 0) {
-		dwl_ipc_manager = wl_registry_bind(wl_registry, name,
-			&zdwl_ipc_manager_v2_interface, version < 2 ? version : 2);
-		zdwl_ipc_manager_v2_add_listener(dwl_ipc_manager, &dwl_ipc_listener, NULL);
+	} else if (strcmp(interface, zpeachwm_ipc_manager_v2_interface.name) == 0) {
+		peachwm_ipc_manager = wl_registry_bind(wl_registry, name,
+			&zpeachwm_ipc_manager_v2_interface, version < 2 ? version : 2);
+		zpeachwm_ipc_manager_v2_add_listener(peachwm_ipc_manager, &peachwm_ipc_listener, NULL);
 	}
 }
 
@@ -501,8 +501,8 @@ main(int argc, char *argv[])
 	wl_display_dispatch(display);
 	wl_display_roundtrip(display);
 
-	if (!dwl_ipc_manager && (mode & SET || tflag || lflag || Tflag || Lflag || cflag || vflag || mflag || fflag))
-		die("bad dwl-ipc protocol");
+	if (!peachwm_ipc_manager && (mode & SET || tflag || lflag || Tflag || Lflag || cflag || vflag || mflag || fflag))
+		die("bad peachwm-ipc protocol");
 
 	wl_display_roundtrip(display);
 

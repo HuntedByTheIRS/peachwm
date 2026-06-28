@@ -3,9 +3,9 @@
 This is largely ripped from somebar's ipc patchset; just with some personal modifications.
 I would probably just submit raphi's patchset but I don't think that would be polite.
 -->
-<protocol name="dwl_ipc_unstable_v2">
-  <description summary="inter-proccess-communication about dwl's state">
-      This protocol allows clients to update and get updates from dwl.
+<protocol name="peachwm_ipc_unstable_v2">
+  <description summary="inter-proccess-communication about peachwm's state">
+      This protocol allows clients to update and get updates from peachwm.
 
       Warning! The protocol described in this file is experimental and
       backward incompatible changes may be made. Backward compatible
@@ -19,27 +19,27 @@ I would probably just submit raphi's patchset but I don't think that would be po
       reset.
   </description>
 
-  <interface name="zdwl_ipc_manager_v2" version="2">
-    <description summary="manage dwl state">
+  <interface name="zpeachwm_ipc_manager_v2" version="2">
+    <description summary="manage peachwm state">
       This interface is exposed as a global in wl_registry.
 
-      Clients can use this interface to get a dwl_ipc_output.
-      After binding the client will recieve the dwl_ipc_manager.tags and dwl_ipc_manager.layout events.
-      The dwl_ipc_manager.tags and dwl_ipc_manager.layout events expose tags and layouts to the client.
+      Clients can use this interface to get a peachwm_ipc_output.
+      After binding the client will recieve the peachwm_ipc_manager.tags and peachwm_ipc_manager.layout events.
+      The peachwm_ipc_manager.tags and peachwm_ipc_manager.layout events expose tags and layouts to the client.
     </description>
 
     <request name="release" type="destructor">
-      <description summary="release dwl_ipc_manager">
-        Indicates that the client will not the dwl_ipc_manager object anymore.
+      <description summary="release peachwm_ipc_manager">
+        Indicates that the client will not the peachwm_ipc_manager object anymore.
         Objects created through this instance are not affected.
       </description>
     </request>
 
     <request name="get_output">
-      <description summary="get a dwl_ipc_outout for a wl_output">
-        Get a dwl_ipc_outout for the specified wl_output.
+      <description summary="get a peachwm_ipc_outout for a wl_output">
+        Get a peachwm_ipc_outout for the specified wl_output.
       </description>
-      <arg name="id" type="new_id" interface="zdwl_ipc_output_v2"/>
+      <arg name="id" type="new_id" interface="zpeachwm_ipc_output_v2"/>
       <arg name="output" type="object" interface="wl_output"/>
     </request>
 
@@ -60,12 +60,12 @@ I would probably just submit raphi's patchset but I don't think that would be po
     </event>
   </interface>
 
-  <interface name="zdwl_ipc_output_v2" version="2">
-    <description summary="control dwl output">
-      Observe and control a dwl output.
+  <interface name="zpeachwm_ipc_output_v2" version="2">
+    <description summary="control peachwm output">
+      Observe and control a peachwm output.
 
       Events are double-buffered:
-      Clients should cache events and redraw when a dwl_ipc_output.frame event is sent.
+      Clients should cache events and redraw when a peachwm_ipc_output.frame event is sent.
 
       Request are not double-buffered:
       The compositor will update immediately upon request.
@@ -78,8 +78,8 @@ I would probably just submit raphi's patchset but I don't think that would be po
     </enum>
 
     <request name="release" type="destructor">
-      <description summary="release dwl_ipc_outout">
-        Indicates to that the client no longer needs this dwl_ipc_output.
+      <description summary="release peachwm_ipc_outout">
+        Indicates to that the client no longer needs this peachwm_ipc_output.
       </description>
     </request>
 
@@ -131,8 +131,8 @@ I would probably just submit raphi's patchset but I don't think that would be po
     <event name="layout_symbol" since="1">
       <description summary="Update the current layout symbol">
           Indicates the layout has changed. Since layout symbols are dynamic.
-          As opposed to the zdwl_ipc_manager.layout event, this should take precendence when displaying.
-          You can ignore the zdwl_ipc_output.layout event.
+          As opposed to the zpeachwm_ipc_manager.layout event, this should take precendence when displaying.
+          You can ignore the zpeachwm_ipc_output.layout event.
       </description>
       <arg name="layout" type="string" summary="The new layout"/>
     </event>
@@ -160,7 +160,7 @@ I would probably just submit raphi's patchset but I don't think that would be po
 
     <request name="set_layout">
       <description summary="Set the layout of this output"/>
-      <arg name="index" type="uint" summary="index of a layout recieved by dwl_ipc_manager.layout"/>
+      <arg name="index" type="uint" summary="index of a layout recieved by peachwm_ipc_manager.layout"/>
     </request>
 
     <!-- Version 2 -->
