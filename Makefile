@@ -28,7 +28,7 @@ PKGS    = wayland-server xkbcommon libinput $(LUA_PKG) $(XLIBS)
 CFLAGS   = `$(PKG_CONFIG) --cflags $(PKGS) wlroots-0.20` \
 	-I. -Iinclude -Isrc -Iparser -Iprotocols \
 	-DWLR_USE_UNSTABLE -D_POSIX_C_SOURCE=200809L -DVERSION=\"$(VERSION)\" \
-	$(XWAYLAND) -g -Wall -Wextra -Wno-unused-parameter -O2 $(MARCH) -std=c11 $(CFLAGS)
+	$(XWAYLAND) -g -Wall -Wextra -Wno-unused-parameter -O2 $(MARCH) -std=c11
 
 MARCH = -march=native
 LDLIBS   = `$(PKG_CONFIG) --libs $(PKGS) wlroots-0.20` -lm $(LIBS)
