@@ -55,7 +55,7 @@ cp /etc/peachwm/config.lua $HOME/.config/peachwm/config.lua
 
 ## Roadmap
 
-- [ ] No longer require exiting peachwm upon input config changes
+- [x] No longer require exiting peachwm upon input config changes
 - [ ] Allow status bar requests
 - [ ] Add smartgaps
 - [ ] Implement scratchpad workspaces
