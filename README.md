@@ -60,9 +60,3 @@ cp /etc/peachwm/config.lua $HOME/.config/peachwm/config.lua
 - [ ] Add smartgaps
 - [ ] Implement scratchpad workspaces
 - [ ] Add animations via [scenefx](https://github.com/wlrfx/scenefx)
-
-## Contributing
-
-*PeachWM is a completely open source project,
-and grateful for any outside contributions that improve the project.
-If you'd like to contribute, fork the project and create a pull request or issue.*
