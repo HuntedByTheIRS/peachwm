@@ -1,0 +1,184 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<protocol name="dwl_ipc_unstable_v2">
+  <copyright>
+    Copyright (C) 2022 Russell Newcomb
+
+    Permission is hereby granted, free of charge, to any person obtaining a
+    copy of this software and associated documentation files (the "Software"),
+    to deal in the Software without restriction, including without limitation
+    the rights to use, copy, modify, merge, publish, distribute, sublicense,
+    and/or sell copies of the Software, and to permit persons to whom the
+    Software is furnished to do so, subject to the following conditions:
+
+    The above copyright notice and this permission notice (including the next
+    paragraph) shall be included in all copies or substantial portions of the
+    Software.
+
+    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
+    THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+    FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+    DEALINGS IN THE SOFTWARE.
+  </copyright>
+
+  <interface name="zdwl_ipc_manager_v2" version="2">
+    <description summary="manage dwl state">
+      This interface is exposed as a global in the Wayland registry and allows
+      clients to query and set dwl state.
+
+      Warning! The protocol described in this file is experimental and
+      backward incompatible changes may be made. Backward compatible changes
+      may be added together with the corresponding interface version bump.
+      Backward incompatible changes are done by bumping the version number in
+      the protocol and interface names and resetting the interface version.
+      Once the protocol is to be declared stable, the 'z' prefix and the
+      version number in the protocol and interface names are removed and the
+      interface version is reset.
+    </description>
+
+    <request name="release" type="destructor">
+      <description summary="release dwl_ipc_manager">
+        Indicates that the client will not use the manager object anymore.
+        Objects created through this interface remain valid.
+      </description>
+    </request>
+
+    <request name="get_output">
+      <description summary="get a dwl_ipc_output for a wl_output">
+        Get a dwl_ipc_output for the given wl_output.
+      </description>
+      <arg name="id" type="new_id" interface="zdwl_ipc_output_v2"/>
+      <arg name="output" type="object" interface="wl_output"/>
+    </request>
+
+    <event name="tags">
+      <description summary="announces number of tags">
+        This event is sent after binding and announces the number of tags.
+      </description>
+      <arg name="amount" type="uint"/>
+    </event>
+
+    <event name="layout">
+      <description summary="announces a layout">
+        This event is sent after binding and announces a layout.
+        Layouts are announced in order.
+      </description>
+      <arg name="name" type="string"/>
+    </event>
+  </interface>
+
+  <interface name="zdwl_ipc_output_v2" version="2">
+    <description summary="interact with dwl output state">
+      Observe and control a dwl output.
+    </description>
+
+    <enum name="tag_state">
+      <entry name="none" value="0" summary="no state"/>
+      <entry name="active" value="1" summary="tag is active"/>
+      <entry name="urgent" value="2" summary="tag has urgent client"/>
+    </enum>
+
+    <request name="release" type="destructor">
+      <description summary="release dwl_ipc_output">
+        Indicates that the client will not use the dwl_ipc_output object
+        anymore. Objects created through this interface remain valid.
+      </description>
+    </request>
+
+    <request name="set_tags">
+      <description summary="set the active tags of this output">
+        set the active tags of this output.
+      </description>
+      <arg name="tagmask" type="uint" summary="bitmask of the tags that should be set"/>
+      <arg name="toggle_tagset" type="uint" summary="whether to toggle the tagset"/>
+    </request>
+
+    <request name="set_client_tags">
+      <description summary="set the tags of the focused client">
+        Set the tags of the focused client.
+      </description>
+      <arg name="and_tags" type="uint"/>
+      <arg name="xor_tags" type="uint"/>
+    </request>
+
+    <request name="set_layout">
+      <description summary="set the layout of this output">
+        Set the layout of this output.
+      </description>
+      <arg name="index" type="uint"/>
+    </request>
+
+    <event name="toggle_visibility">
+      <description summary="dwl visibility has been toggled">
+        Indicates that dwl visibility has been toggled.
+      </description>
+    </event>
+
+    <event name="active">
+      <description summary="output is active">
+        Indicates the output is active (selected monitor).
+      </description>
+      <arg name="active" type="uint"/>
+    </event>
+
+    <event name="tag">
+      <description summary="tag state changed">
+        Indicates a tag state change.
+      </description>
+      <arg name="tag" type="uint" summary="index of the tag"/>
+      <arg name="state" type="uint" enum="tag_state" summary="state of the tag"/>
+      <arg name="clients" type="uint" summary="number of clients in tag"/>
+      <arg name="focused" type="uint" summary="1 if focused client is in this tag"/>
+    </event>
+
+    <event name="layout">
+      <description summary="layout changed">
+        Indicates the layout changed.
+      </description>
+      <arg name="layout" type="uint" summary="index of the layout"/>
+    </event>
+
+    <event name="title">
+      <description summary="title changed">
+        Indicates the focused client title changed.
+      </description>
+      <arg name="title" type="string"/>
+    </event>
+
+    <event name="appid">
+      <description summary="appid changed">
+        Indicates the focused client appid changed.
+      </description>
+      <arg name="appid" type="string"/>
+    </event>
+
+    <event name="layout_symbol">
+      <description summary="layout symbol changed">
+        Indicates the layout symbol changed.
+      </description>
+      <arg name="layout" type="string"/>
+    </event>
+
+    <event name="frame">
+      <description summary="frame event">
+        Sent after all state events have been sent for a given state change.
+      </description>
+    </event>
+
+    <event name="fullscreen" since="2">
+      <description summary="fullscreen state changed">
+        Indicates the fullscreen state changed.
+      </description>
+      <arg name="is_fullscreen" type="uint"/>
+    </event>
+
+    <event name="floating" since="2">
+      <description summary="floating state changed">
+        Indicates the floating state changed.
+      </description>
+      <arg name="is_floating" type="uint"/>
+    </event>
+  </interface>
+</protocol>

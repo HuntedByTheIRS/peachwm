@@ -1,0 +1,1 @@
+/nix/store/0i6c2awwzk0padnbmx1fi8akh0g76wr0-lua-5.4.7/include/lua.h
