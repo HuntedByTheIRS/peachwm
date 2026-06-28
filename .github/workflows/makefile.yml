@@ -26,7 +26,7 @@ jobs:
           pkg-config \
           wayland \
           wayland-protocols \
-          wlroots \
+          wlroots0.20 \
           libxkbcommon \
           libinput \
           lua \
