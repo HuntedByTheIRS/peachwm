@@ -1,5 +1,6 @@
 /*
- * See LICENSE file and licenses/ directory for copyright and license details.
+ * See LICENSE file for copyright and license details.
+ * PeachWM is a fork of swindle, which is also GPLv3 licensed.
  */
 #include <errno.h>
 #include <getopt.h>

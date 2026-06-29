@@ -14,6 +14,9 @@
 
 peachwm is a fork of [swindle](https://github.com/kantiankant/swindle)
 that is designed to be similar to MangoWC, while remaining lightweight.
+swindle is also fully GPLv3 licensed.
+
+PeachWM is maintained by [HuntedByTheIRS](https://github.com/HuntedByTheIRS).
 
 ## Features
 
