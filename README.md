@@ -59,7 +59,7 @@ cp /etc/peachwm/config.lua $HOME/.config/peachwm/config.lua
 ## Roadmap
 
 - [x] No longer require exiting peachwm upon input config changes
-- [x] ->Allow status bar requests (swaymsg like)
-- [ ] Add smartgaps
+- [x] Allow status bar requests (swaymsg like)
+- [x] Add smartgaps
 - [ ] Implement scratchpad workspaces
 - [ ] Add animations via [scenefx](https://github.com/wlrfx/scenefx)
