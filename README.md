@@ -1,13 +1,13 @@
 # PeachWM
 
 <!--toc:start-->
-- [peachwm](#peachwm)
-- [Features](#features)
-- [Dependencies](#dependencies)
-- [Configuration](#configuration)
-- [Installation](#installation)
-- [Roadmap](#roadmap)
-- [Contributing](#contributing)
+- [PeachWM](#peachwm)
+  - [peachwm](#peachwm-1)
+  - [Features](#features)
+  - [Dependencies](#dependencies)
+  - [Configuration](#configuration)
+  - [Installation](#installation)
+  - [Roadmap](#roadmap)
 <!--toc:end-->
 
 ## peachwm
@@ -56,7 +56,7 @@ cp /etc/peachwm/config.lua $HOME/.config/peachwm/config.lua
 ## Roadmap
 
 - [x] No longer require exiting peachwm upon input config changes
-- [ ] Allow status bar requests
+- [ ] ->Allow status bar requests (swaymsg like)
 - [ ] Add smartgaps
 - [ ] Implement scratchpad workspaces
 - [ ] Add animations via [scenefx](https://github.com/wlrfx/scenefx)
