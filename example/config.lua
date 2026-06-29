@@ -19,7 +19,7 @@ appearance = {
 -- re-apply them on save
 input = {
 	repeat_rate = 50,
-	repeat_delay = 150,
+	repeat_delay = 450,
 	tap_to_click = true,
 	tap_and_drag = true,
 	drag_lock = true,
