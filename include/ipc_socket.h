@@ -820,6 +820,7 @@ ipc_handle_command(struct ipc_client *client, const char *payload,
 			quit(NULL);
 			success = 1;
 		} else if (!strcmp(cmd, "reload")) {
+			do_reload();
 			success = 1;
 		}
 	}

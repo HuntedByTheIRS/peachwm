@@ -418,6 +418,7 @@ static void virtualpointer(struct wl_listener *listener, void *data);
 static Monitor *xytomon(double x, double y);
 static void xytonode(double x, double y, struct wlr_surface **psurface,
                      Client **pc, LayerSurface **pl, double *nx, double *ny);
+static void do_reload(void);
 
 /* variables */
 static pid_t child_pid = -1;
@@ -524,6 +525,7 @@ static struct wlr_xwayland *xwayland;
 static Config cfg;
 static struct wl_event_source *cfg_watch_src;
 static const char *custom_cfg_path;
+static char config_path[1024];
 
 /* attempt to encapsulate suck into one file */
 #include "client.h"
@@ -2899,18 +2901,147 @@ static void reapply_input_config(const Config *newcfg) {
 	}
 }
 
+/* Re-apply monitor configuration from global cfg to existing monitors */
+
+static void
+reapply_monitor_config(void)
+{
+	Monitor *m;
+	wl_list_for_each(m, &mons, link) {
+		for (int ri = 0; ri < cfg.nmonitors; ri++) {
+			const CfgMonitorRule *r = &cfg.monitors[ri];
+			if (!r->name[0] || strstr(m->wlr_output->name, r->name)) {
+				m->mfact = r->mfact;
+				m->nmaster = r->nmaster;
+				/* Map layout name */
+				m->lt[0] = &layouts[0];
+				for (int li = 0; li < (int)LENGTH(layouts); li++) {
+					if (layouts[li].symbol && !strcmp(r->layout, layouts[li].symbol)) {
+						m->lt[0] = &layouts[li];
+						break;
+					}
+					if (!strcmp(r->layout, "dwindle") && layouts[li].arrange == dwindle) {
+						m->lt[0] = &layouts[li];
+						break;
+					}
+					if (!strcmp(r->layout, "master") && layouts[li].arrange == master) {
+						m->lt[0] = &layouts[li];
+						break;
+					}
+					if (!strcmp(r->layout, "monocle") && layouts[li].arrange == monocle) {
+						m->lt[0] = &layouts[li];
+						break;
+					}
+				}
+				m->lt[1] = &layouts[LENGTH(layouts) > 1 && m->lt[0] != &layouts[1]];
+				/* Apply scale and transform */
+				struct wlr_output_state state;
+				wlr_output_state_init(&state);
+				wlr_output_state_set_scale(&state, r->scale);
+				wlr_output_state_set_transform(&state, r->transform);
+				wlr_output_commit_state(m->wlr_output, &state);
+				wlr_output_state_finish(&state);
+				/* Update position */
+				if (r->x != -1 && r->y != -1)
+					wlr_output_layout_add(output_layout, m->wlr_output, r->x, r->y);
+				break;
+			}
+		}
+	}
+}
+
+/* Re-apply appearance settings to root background, fullscreen backgrounds,
+ * and all client borders */
+
+static void
+reapply_client_appearance(void)
+{
+	Client *c;
+	Monitor *m;
+	wlr_scene_rect_set_color(root_bg, cfg.appearance.root_color);
+	wl_list_for_each(m, &mons, link) {
+		wlr_scene_rect_set_color(m->fullscreen_bg, cfg.appearance.fullscreen_bg);
+	}
+	wl_list_for_each(c, &clients, link) {
+		c->bw = !c->isfullscreen ? cfg.appearance.border_px : 0;
+		if (!client_is_unmanaged(c)) {
+			float *color = c->isurgent ? cfg.appearance.urgent_color
+			             : c == focustop(c->mon) ? cfg.appearance.focus_color
+			                                     : cfg.appearance.border_color;
+			for (int i = 0; i < 4; i++)
+				wlr_scene_rect_set_color(c->border[i], color);
+		}
+	}
+}
+
+/* Re-apply window rules from global cfg to all existing clients */
+
+static void
+reapply_client_rules(void)
+{
+	Client *c;
+	wl_list_for_each(c, &clients, link) {
+		if (client_is_unmanaged(c))
+			continue;
+		const char *appid = client_get_appid(c);
+		const char *title = client_get_title(c);
+		for (int ri = 0; ri < cfg.nrules; ri++) {
+			const CfgRule *r = &cfg.rules[ri];
+			if ((!r->title[0] || strstr(title, r->title)) &&
+			    (!r->app_id[0] || strstr(appid, r->app_id))) {
+				c->isfloating = r->floating | client_is_float_type(c);
+				if (r->tags) {
+					dwindle_remove_client(c);
+					master_remove_client(c);
+					c->tags = r->tags;
+				}
+				break;
+			}
+		}
+	}
+}
+
 /* Config hot reload callback is fired by the inotify watcher */
 
-static void on_config_reload(const Config *newcfg, void *ud) {
+static void
+on_config_reload(const Config *newcfg, void *ud)
+{
 	Monitor *m;
 	(void)ud;
 	reapply_input_config(newcfg);
 	cfg = *newcfg;
+	reapply_monitor_config();
+	reapply_client_appearance();
+	reapply_client_rules();
 	wl_list_for_each(m, &mons, link) {
 		apply_workspace_layout(m, current_tag_idx(m));
 		arrange(m);
 	}
 	printstatus();
+}
+
+/* Triggered by the IPC 'reload' command - re-reads config from disk */
+
+static void
+do_reload(void)
+{
+	Config fresh;
+	if (config_load(config_path, &fresh) == 0) {
+		fprintf(stderr, "peachwm: config reloaded via IPC\n");
+		reapply_input_config(&fresh);
+		cfg = fresh;
+		reapply_monitor_config();
+		reapply_client_appearance();
+		reapply_client_rules();
+		Monitor *m;
+		wl_list_for_each(m, &mons, link) {
+			apply_workspace_layout(m, current_tag_idx(m));
+			arrange(m);
+		}
+		printstatus();
+	} else {
+		fprintf(stderr, "peachwm: IPC config reload failed\n");
+	}
 }
 
 void setup(void) {
@@ -2937,6 +3068,7 @@ void setup(void) {
       die("failed to load config from '%s'", path);
     if (debug_override)
       cfg.log_level = WLR_DEBUG;
+    strncpy(config_path, path, sizeof(config_path) - 1);
   }
 
   wlr_log_init(cfg.log_level, NULL);
