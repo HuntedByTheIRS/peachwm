@@ -80,7 +80,9 @@
 #define MIN(A, B) ((A) < (B) ? (A) : (B))
 #define CLEANMASK(mask) (mask & ~WLR_MODIFIER_CAPS)
 #define VISIBLEON(C, M)                                                        \
-  ((M) && (C)->mon == (M) && ((C)->tags & (M)->tagset[(M)->seltags]))
+  ((M) && (C)->mon == (M) &&                                                   \
+   ((C)->isscratchpad ? (M)->scratchpad_visible :                               \
+    ((C)->tags & (M)->tagset[(M)->seltags])))
 #define LENGTH(X) (sizeof X / sizeof X[0])
 #define END(A) ((A) + LENGTH(A))
 #define TAGMASK ((1u << TAGCOUNT) - 1)
@@ -100,6 +102,7 @@ enum {
   LyrBottom,
   LyrTile,
   LyrFloat,
+  LyrScratch,
   LyrTop,
   LyrFS,
   LyrOverlay,
@@ -158,7 +161,7 @@ typedef struct {
 #endif
   unsigned int bw;
   uint32_t tags;
-  int isfloating, isurgent, isfullscreen;
+  int isfloating, isurgent, isfullscreen, isscratchpad;
   uint32_t resize; /* configure serial of a pending resize */
 } Client;
 
@@ -265,6 +268,9 @@ struct Monitor {
   /* master/stack layout state */
   Client *master_master[TAGCOUNT]; /* the master client (NULL if none) */
   int master_side[TAGCOUNT];       /* 0 = master on left, 1 = master on right */
+  int scratchpad_visible;          /* whether scratchpad is shown */
+  Client *scratchpad_prev_focus;   /* client focused before scratchpad opened */
+  Client *scratchpad_current;      /* currently visible scratchpad client */
 };
 
 typedef struct {
@@ -404,6 +410,9 @@ static void monocle(Monitor *m);
 static void togglefloating(const Arg *arg);
 static void togglefullscreen(const Arg *arg);
 static void togglegaps(const Arg *arg);
+static void togglescratchpad(const Arg *arg);
+static void scratchpad_arrange(Monitor *m);
+static void swapdirscratchpad(const Arg *arg);
 static void toggletag(const Arg *arg);
 static void toggleview(const Arg *arg);
 static void unlocksession(struct wl_listener *listener, void *data);
@@ -631,11 +640,15 @@ void arrange(Monitor *m) {
     if (c->mon != m || c->scene->node.parent == layers[LyrFS])
       continue;
 
-    wlr_scene_node_reparent(
-        &c->scene->node,
-        (!m->lt[m->sellt]->arrange && c->isfloating)  ? layers[LyrTile]
-        : (m->lt[m->sellt]->arrange && c->isfloating) ? layers[LyrFloat]
-                                                      : c->scene->node.parent);
+    if (c->isscratchpad) {
+      wlr_scene_node_reparent(&c->scene->node, layers[LyrScratch]);
+    } else {
+      wlr_scene_node_reparent(
+          &c->scene->node,
+          (!m->lt[m->sellt]->arrange && c->isfloating)  ? layers[LyrTile]
+          : (m->lt[m->sellt]->arrange && c->isfloating) ? layers[LyrFloat]
+                                                        : c->scene->node.parent);
+    }
   }
 
   if (m->lt[m->sellt]->arrange)
@@ -1677,6 +1690,56 @@ void focusdir(const Arg *arg) {
   if (!sel || (sel->isfullscreen && !client_has_children(sel)))
     return;
 
+  /* Scratchpad monocle cycling */
+  if (sel->isscratchpad && selmon && selmon->scratchpad_visible) {
+    Client *first = NULL, *next = NULL, *prev = NULL;
+    int found = 0;
+
+    wl_list_for_each(c, &clients, link) {
+      if (!c->isscratchpad || c->mon != selmon)
+        continue;
+      if (!first)
+        first = c;
+      if (found) {
+        next = c;
+        break;
+      }
+      if (c == sel) {
+        found = 1;
+        continue;
+      }
+      prev = c;
+    }
+
+    Client *target = NULL;
+    if (arg->i == WLR_DIRECTION_DOWN || arg->i == WLR_DIRECTION_RIGHT) {
+      if (next)
+        target = next;
+      else if (first)
+        target = first;
+    } else {
+      if (prev)
+        target = prev;
+      else {
+        /* wrap to last */
+        wl_list_for_each(c, &clients, link)
+          if (c->isscratchpad && c->mon == selmon)
+            target = c;
+      }
+    }
+
+    if (target && target != sel) {
+      if (selmon->scratchpad_current)
+        wlr_scene_node_set_enabled(
+            &selmon->scratchpad_current->scene->node, 0);
+      wlr_scene_node_set_enabled(&target->scene->node, 1);
+      client_set_suspended(target, 0);
+      selmon->scratchpad_current = target;
+      focusclient(target, 1);
+    }
+    return;
+  }
+
   /* In monocle layout, cycle through clients in order */
   if (selmon->lt[selmon->sellt]->arrange == monocle) {
     Client *first = NULL, *next = NULL, *prev = NULL;
@@ -1996,6 +2059,14 @@ static void dispatch_action(const char *action,
     chvt(&arg);
     return;
   }
+  if (!strcmp(action, "togglescratchpad")) {
+    togglescratchpad(NULL);
+    return;
+  }
+  if (!strcmp(action, "swapdirscratchpad")) {
+    swapdirscratchpad(NULL);
+    return;
+  }
 
   fprintf(stderr, "peachwm: unknown action '%s'\n", action);
 }
@@ -2210,6 +2281,24 @@ void mapnotify(struct wl_listener *listener, void *data) {
     setmon(c, p->mon, p->tags);
   } else {
     applyrules(c);
+  }
+  /* Auto-send to scratchpad if scratchpad is visible */
+  if (c->mon && c->mon->scratchpad_visible && !c->isscratchpad &&
+      !c->isfullscreen) {
+    dwindle_remove_client(c);
+    master_remove_client(c);
+    c->isscratchpad = 1;
+    c->isfloating = 1;
+    setfloating(c, 1);
+    /* Show it and hide previous scratchpad client */
+    if (c->mon->scratchpad_current && c->mon->scratchpad_current != c) {
+      wlr_scene_node_set_enabled(
+          &c->mon->scratchpad_current->scene->node, 0);
+      client_set_suspended(c->mon->scratchpad_current, 1);
+    }
+    scratchpad_arrange(c->mon);
+    c->mon->scratchpad_current = c;
+    focusclient(c, 1);
   }
   printstatus();
   ipc_socket_send_window_event("new");
@@ -2727,10 +2816,14 @@ void setfloating(Client *c, int floating) {
   if (!c->mon || !client_surface(c)->mapped ||
       !c->mon->lt[c->mon->sellt]->arrange)
     return;
-  wlr_scene_node_reparent(
-      &c->scene->node, layers[c->isfullscreen || (p && p->isfullscreen) ? LyrFS
-                              : c->isfloating ? LyrFloat
-                                              : LyrTile]);
+  if (c->isscratchpad) {
+    wlr_scene_node_reparent(&c->scene->node, layers[LyrScratch]);
+  } else {
+    wlr_scene_node_reparent(
+        &c->scene->node, layers[c->isfullscreen || (p && p->isfullscreen) ? LyrFS
+                                : c->isfloating ? LyrFloat
+                                                : LyrTile]);
+  }
   arrange(c->mon);
   printstatus();
 }
@@ -2741,9 +2834,13 @@ void setfullscreen(Client *c, int fullscreen) {
     return;
   c->bw = fullscreen ? 0 : cfg.appearance.border_px;
   client_set_fullscreen(c, fullscreen);
-  wlr_scene_node_reparent(&c->scene->node, layers[c->isfullscreen ? LyrFS
-                                                  : c->isfloating ? LyrFloat
-                                                                  : LyrTile]);
+  if (c->isscratchpad) {
+    wlr_scene_node_reparent(&c->scene->node, layers[LyrScratch]);
+  } else {
+    wlr_scene_node_reparent(&c->scene->node, layers[c->isfullscreen ? LyrFS
+                                                    : c->isfloating ? LyrFloat
+                                                                    : LyrTile]);
+  }
 
   if (fullscreen) {
     c->prev = c->geom;
@@ -3330,7 +3427,7 @@ void startdrag(struct wl_listener *listener, void *data) {
 
 void tag(const Arg *arg) {
   Client *sel = focustop(selmon);
-  if (!sel || (arg->ui & TAGMASK) == 0)
+  if (!sel || (arg->ui & TAGMASK) == 0 || sel->isscratchpad)
     return;
 
   /* Remove from the source tag's layout trees */
@@ -3728,8 +3825,8 @@ static void master_remove_client(Client *c) {
 
 void togglefloating(const Arg *arg) {
   Client *sel = focustop(selmon);
-  /* return if fullscreen */
-  if (sel && !sel->isfullscreen)
+  /* return if fullscreen or scratchpad (strictly floating) */
+  if (sel && !sel->isfullscreen && !sel->isscratchpad)
     setfloating(sel, !sel->isfloating);
 }
 
@@ -3742,6 +3839,137 @@ void togglefullscreen(const Arg *arg) {
 void togglegaps(const Arg *arg) {
   selmon->gaps = !selmon->gaps;
   arrange(selmon);
+}
+
+static void
+scratchpad_arrange(Monitor *m)
+{
+  Client *c;
+  int sw = m->w.width * 0.8;
+  int sh = m->w.height * 0.8;
+  int sx = m->w.x + (m->w.width - sw) / 2;
+  int sy = m->w.y + (m->w.height - sh) / 2;
+
+  wl_list_for_each(c, &clients, link) {
+    if (c->mon != m || !c->isscratchpad)
+      continue;
+    wlr_scene_node_reparent(&c->scene->node, layers[LyrScratch]);
+    resize(c, (struct wlr_box){sx, sy, sw, sh}, 0);
+  }
+}
+
+void togglescratchpad(const Arg *arg) {
+  Monitor *m = selmon;
+  Client *c, *focus = NULL;
+
+  if (!m)
+    return;
+
+  if (!m->scratchpad_visible) {
+    /* Save current focus before showing scratchpad */
+    m->scratchpad_prev_focus = focustop(m);
+  }
+
+  m->scratchpad_visible = !m->scratchpad_visible;
+
+  if (m->scratchpad_visible) {
+    /* Find the most recently focused scratchpad client */
+    scratchpad_arrange(m);
+    wl_list_for_each(c, &fstack, flink) {
+      if (c->mon == m && c->isscratchpad) {
+        focus = c;
+        break;
+      }
+    }
+    /* Show only that one (monocle-like) */
+    wl_list_for_each(c, &clients, link) {
+      if (c->mon == m && c->isscratchpad) {
+        wlr_scene_node_set_enabled(&c->scene->node, c == focus);
+        client_set_suspended(c, c != focus);
+      }
+    }
+    m->scratchpad_current = focus;
+    if (focus)
+      focusclient(focus, 1);
+  } else {
+    /* Hide all scratchpad clients */
+    wl_list_for_each(c, &clients, link) {
+      if (c->mon == m && c->isscratchpad) {
+        wlr_scene_node_set_enabled(&c->scene->node, 0);
+        client_set_suspended(c, 1);
+      }
+    }
+    m->scratchpad_current = NULL;
+    /* Restore focus to previous client */
+    if (m->scratchpad_prev_focus && VISIBLEON(m->scratchpad_prev_focus, m))
+      focusclient(m->scratchpad_prev_focus, 1);
+    else
+      focusclient(focustop(m), 1);
+  }
+  printstatus();
+}
+
+void swapdirscratchpad(const Arg *arg) {
+  Client *sel = focustop(selmon);
+
+  if (!sel || sel->isfullscreen || !selmon)
+    return;
+
+  if (sel->isscratchpad) {
+    /* Move FROM scratchpad to current workspace */
+    Client *next = NULL;
+    sel->isscratchpad = 0;
+    sel->isfloating = 0;
+    sel->tags = selmon->tagset[selmon->seltags];
+    if (selmon->scratchpad_visible) {
+      /* Find another scratchpad client to show */
+      wl_list_for_each(next, &fstack, flink) {
+        if (next != sel && next->isscratchpad && next->mon == selmon) {
+          scratchpad_arrange(selmon);
+          break;
+        }
+      }
+      if (!next)
+        selmon->scratchpad_current = NULL;
+      else
+        selmon->scratchpad_current = next;
+    } else {
+      selmon->scratchpad_current = NULL;
+    }
+    /* setfloating reparents + arranges; let it manage visibility */
+    setfloating(sel, 0);
+    if (next)
+      focusclient(next, 1);
+    else
+      focusclient(focustop(selmon), 1);
+  } else {
+    /* Move TO scratchpad */
+    Client *old = selmon->scratchpad_current;
+    dwindle_remove_client(sel);
+    master_remove_client(sel);
+    sel->isscratchpad = 1;
+    sel->isfloating = 1;
+    setfloating(sel, 1);
+    if (selmon->scratchpad_visible) {
+      /* Hide previous scratchpad client if different */
+      if (old && old != sel) {
+        wlr_scene_node_set_enabled(&old->scene->node, 0);
+        client_set_suspended(old, 1);
+      }
+      scratchpad_arrange(selmon);
+      wlr_scene_node_set_enabled(&sel->scene->node, 1);
+      client_set_suspended(sel, 0);
+      selmon->scratchpad_current = sel;
+      focusclient(sel, 1);
+    } else {
+      wlr_scene_node_set_enabled(&sel->scene->node, 0);
+      client_set_suspended(sel, 1);
+      arrange(selmon);
+      focusclient(focustop(selmon), 1);
+    }
+  }
+
+  printstatus();
 }
 
 /* swapdir is essentially focusdir but swap */
@@ -3887,7 +4115,7 @@ void swaptiled(Client *a, Client *b) {
 void toggletag(const Arg *arg) {
   uint32_t newtags;
   Client *sel = focustop(selmon);
-  if (!sel || !(newtags = sel->tags ^ (arg->ui & TAGMASK)))
+  if (!sel || sel->isscratchpad || !(newtags = sel->tags ^ (arg->ui & TAGMASK)))
     return;
 
   dwindle_remove_client(sel);
@@ -3945,11 +4173,36 @@ void unmapnotify(struct wl_listener *listener, void *data) {
       focusclient(focustop(selmon), 1);
     }
   } else {
+    Monitor *oldmon = c->mon;
     wl_list_remove(&c->link);
     dwindle_remove_client(c);
     master_remove_client(c);
-    setmon(c, NULL, 0);
     wl_list_remove(&c->flink);
+    /* Clear any stale scratchpad references to this client */
+    if (oldmon) {
+      if (oldmon->scratchpad_current == c)
+        oldmon->scratchpad_current = NULL;
+      if (oldmon->scratchpad_prev_focus == c)
+        oldmon->scratchpad_prev_focus = NULL;
+    }
+    if (c->isscratchpad && oldmon && oldmon->scratchpad_visible) {
+      /* Closing a scratchpad client: focus another scratchpad client */
+      Client *s;
+      int found = 0;
+      wl_list_for_each(s, &fstack, flink) {
+        if (s->isscratchpad && s->mon == oldmon) {
+          focusclient(s, 1);
+          found = 1;
+          break;
+        }
+      }
+      if (!found)
+        focusclient(focustop(selmon), 1);
+      c->mon = NULL;
+      arrange(oldmon);
+    } else {
+      setmon(c, NULL, 0);
+    }
   }
 
   wlr_scene_node_destroy(&c->scene->node);

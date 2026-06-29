@@ -85,6 +85,8 @@ keybinds = {
 	{ mods = { "logo", "shift" }, key = "less", action = "tagmon", args = { "left" } },
 	{ mods = { "logo", "shift" }, key = "greater", action = "tagmon", args = { "right" } },
 	{ mods = { "logo", "shift" }, key = "e", action = "quit" },
+	{ mods = { "logo" }, key = "`", action = "togglescratchpad" },
+	{ mods = { "logo", "shift" }, key = "~", action = "swapdirscratchpad" },
 }
 
 -- layout switchers (also available: setlayout_dwindle, setlayout_master, setlayout_monocle)

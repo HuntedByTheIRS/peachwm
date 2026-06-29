@@ -171,6 +171,9 @@ parse_keyname(const char *name)
 	if (!strcmp(name, "insert"))      return XKB_KEY_Insert;
 	if (!strcmp(name, "delete"))      return XKB_KEY_Delete;
 
+	if (!strcmp(name, "`"))           return XKB_KEY_grave;
+	if (!strcmp(name, "~"))           return XKB_KEY_asciitilde;
+
 	return XKB_KEY_NoSymbol;
 }
 
