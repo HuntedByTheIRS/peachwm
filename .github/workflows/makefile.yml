@@ -33,16 +33,5 @@ jobs:
           libxcb \
           xcb-util-wm
 
-    - name: Test 'make debug' (Clang + Sanitizers)
-      run: |
-        make debug
-        make clean
-
-    - name: Test Default 'make' (Auto-detecting TCC)
-      run: |
-        make
-        make clean
-
-    - name: Test 'make release' (Clang + Strict Warnings)
-      run: |
-        make release
+    - name: Test all targets and packaging modes
+      run: make test
