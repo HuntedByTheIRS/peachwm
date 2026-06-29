@@ -187,7 +187,8 @@ uninstall:
 #   DISTRO=gentoo make package - Gentoo ebuild
 #   DISTRO=void make package - Void Linux template
 
-_pkg-tarball: peachwm smsg/smsg
+_pkg-tarball:
+	$(MAKE) release
 	rm -rf peachwm-$(VERSION)
 	mkdir -p peachwm-$(VERSION)
 	cp -r .gitignore Makefile LICENSE README.md include src parser protocols smsg example peachwm-$(VERSION)/
@@ -226,7 +227,7 @@ _pkg-arch: _pkg-tarball
 		sha256sums=('SKIP')
 		build() {
 		  cd "$${srcdir}/peachwm-$${ver}"
-		  make
+		  make release
 		}
 		package() {
 		  cd "$${srcdir}/peachwm-$${ver}"
@@ -319,7 +320,7 @@ _pkg-fedora: _pkg-tarball
 		%prep
 		%setup -q
 		%build
-		make
+		make release
 		%install
 		make DESTDIR=%{buildroot} PREFIX=/usr install
 		%files
@@ -377,7 +378,7 @@ _pkg-opensuse: _pkg-tarball
 		%prep
 		%setup -q
 		%build
-		make
+		make release
 		%install
 		make DESTDIR=%{buildroot} PREFIX=/usr install
 		%files
@@ -436,7 +437,7 @@ _pkg-gentoo: _pkg-tarball
 			sys-devel/clang
 		"
 		src_compile() {
-			make
+			make release
 		}
 		src_install() {
 			make DESTDIR="$${D}" PREFIX=/usr install
@@ -453,7 +454,7 @@ _pkg-void: _pkg-tarball
 		version=$$ver
 		revision=1
 		build_style=gnu-makefile
-		make_build_args=""
+		make_build_args="release"
 		make_install_args="DESTDIR=$${DESTDIR} PREFIX=/usr"
 		hostmakedepends="clang pkg-config wayland-protocols git"
 		makedepends="wayland-devel wlroots0.20-devel libxkbcommon-devel libinput-devel lua54-devel libxcb-devel xcb-util-wm-devel"
