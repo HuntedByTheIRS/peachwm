@@ -529,6 +529,7 @@ static const char *custom_cfg_path;
 #include "client.h"
 #include "ext-workspace.h"
 #include "ipc.h"
+#include "ipc_socket.h"
 
 /* function implementations */
 
@@ -824,6 +825,7 @@ void checkidleinhibitor(struct wlr_surface *exclude) {
 void cleanup(void) {
   config_watch_stop(cfg_watch_src);
   cfg_watch_src = NULL;
+  ipc_socket_finish();
   cleanuplisteners();
 
 #ifdef XWAYLAND
@@ -888,6 +890,7 @@ void cleanupmon(struct wl_listener *listener, void *data) {
 
   closemon(m);
   ext_workspace_cleanupmon(m);
+  ipc_socket_send_output_event();
   for (int i = 0; i < TAGCOUNT; i++) {
     dwindle_free_tree(m->dwindle_root[i]);
     m->dwindle_root[i] = NULL;
@@ -1260,6 +1263,7 @@ void createmon(struct wl_listener *listener, void *data) {
   wl_list_insert(&mons, &m->link);
   ext_workspace_createmon(m);
   printstatus();
+  ipc_socket_send_output_event();
 
   /* The xdg-protocol specifies:
    *
@@ -2206,6 +2210,7 @@ void mapnotify(struct wl_listener *listener, void *data) {
     applyrules(c);
   }
   printstatus();
+  ipc_socket_send_window_event("new");
 
 unset_fullscreen:
   m = c->mon ? c->mon : xytomon(c->geom.x, c->geom.y);
@@ -2522,6 +2527,7 @@ void printstatus(void) {
   }
   fflush(stdout);
   ipc_printstatus();
+  ipc_socket_send_workspace_event("focus");
 }
 
 void powermgrsetmode(struct wl_listener *listener, void *data) {
@@ -2941,6 +2947,7 @@ void setup(void) {
   dpy = wl_display_create();
   event_loop = wl_display_get_event_loop(dpy);
   ipc_init();
+  ipc_socket_init();
   workspaces_init();
 
   /* Start the inotify config watcher */
@@ -3815,6 +3822,7 @@ void unmapnotify(struct wl_listener *listener, void *data) {
 
   wlr_scene_node_destroy(&c->scene->node);
   printstatus();
+  ipc_socket_send_window_event("close");
   motionnotify(0, NULL, 0, 0, 0, 0);
 }
 
@@ -3918,8 +3926,10 @@ void updatemons(struct wl_listener *listener, void *data) {
 
 void updatetitle(struct wl_listener *listener, void *data) {
   Client *c = wl_container_of(listener, c, set_title);
-  if (c == focustop(c->mon))
+  if (c == focustop(c->mon)) {
     printstatus();
+    ipc_socket_send_window_event("title");
+  }
 }
 
 void urgent(struct wl_listener *listener, void *data) {

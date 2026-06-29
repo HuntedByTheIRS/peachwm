@@ -1,0 +1,23 @@
+cff-version: 1.2.0
+message: >-
+  If you use PeachWM in your research or project, please cite it
+  using the metadata below.
+title: PeachWM
+version: 0.2
+date-released: 2026
+authors:
+  - family-names: HuntedByTheIRS
+    email: huntedbyth3irs@gmail.com
+repository-code: >-
+  https://github.com/HuntedByTheIRS/peachwm
+license: GPL-3.0-or-later
+preferred-citation:
+  type: software
+  authors:
+    - family-names: HuntedByTheIRS
+      email: huntedbyth3irs@gmail.com
+  title: PeachWM
+  version: 0.2
+  year: 2026
+  url: >-
+    https://github.com/HuntedByTheIRS/peachwm

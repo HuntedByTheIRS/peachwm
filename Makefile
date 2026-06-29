@@ -66,6 +66,7 @@ debug: CFLAGS += -Werror -Weverything \
 	-Wno-unreachable-code-break -Wno-missing-format-attribute \
 	-Wno-format-nonliteral -Wno-float-conversion \
 	-Wno-tentative-definition-compat -Wno-missing-variable-declarations \
+	-Wno-gnu-zero-variadic-macro-arguments \
 	-g3 -fno-omit-frame-pointer -fsanitize=address,undefined,leak \
 	-fsanitize-trap=all
 debug: LDLIBS += -fsanitize=address,undefined,leak
@@ -78,7 +79,8 @@ peachwm: src/peachwm.o src/util.o parser/parser.o \
 	$(CC) $^ $(LDFLAGS) $(LDLIBS) -o $@
 
 src/peachwm.o: src/peachwm.c include/client.h include/ipc.h \
-	include/ext-workspace.h src/wlr_ext_workspace_v1.h parser/parser.h \
+	include/ipc_socket.h include/ext-workspace.h \
+	src/wlr_ext_workspace_v1.h parser/parser.h \
 	protocols/peachwm-ipc-unstable-v2-protocol.h \
 	protocols/ext-workspace-v1-protocol.h \
 	protocols/cursor-shape-v1-protocol.h \
