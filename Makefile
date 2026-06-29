@@ -45,14 +45,14 @@ WLPROTO   = $(shell $(PKG_CONFIG) --variable=pkgdatadir wayland-protocols)
 PROTO_OBJS = protocols/peachwm-ipc-unstable-v2-protocol.o \
 	protocols/ext-workspace-v1-protocol.o
 
-all: peachwm smsg/smsg
+all: peachwm peachmsg/peachmsg
 
 release: CC = clang
 release: CFLAGS += -Werror -Wpedantic -Wmissing-prototypes -Wstrict-prototypes \
 	-Wold-style-definition -Wmissing-declarations -Wimplicit-fallthrough \
 	-Wno-gnu-zero-variadic-macro-arguments \
 	-march=native
-release: peachwm smsg/smsg
+release: peachwm peachmsg/peachmsg
 
 debug: CC = clang
 debug: CFLAGS += -Werror -Weverything \
@@ -74,7 +74,7 @@ debug: CFLAGS += -Werror -Weverything \
 	-g3 -fno-omit-frame-pointer -fsanitize=address,undefined,leak \
 	-fsanitize-trap=all
 debug: LDLIBS += -fsanitize=address,undefined,leak
-debug: peachwm smsg/smsg
+debug: peachwm peachmsg/peachmsg
 
 # Compositor
 
@@ -140,42 +140,42 @@ protocols/ext-workspace-v1-protocol.h: protocols/ext-workspace-v1.xml
 protocols/ext-workspace-v1-protocol.c: protocols/ext-workspace-v1.xml
 	$(SCANNER) private-code $< $@
 
-# smsg IPC client
+# peachmsg IPC client
 
-smsg/peachwm-ipc-unstable-v2-protocol.h: protocols/peachwm-ipc-unstable-v2.xml
+peachmsg/peachwm-ipc-unstable-v2-protocol.h: protocols/peachwm-ipc-unstable-v2.xml
 	$(SCANNER) client-header $< $@
 
-smsg/peachwm-ipc-unstable-v2-protocol.c: protocols/peachwm-ipc-unstable-v2.xml
+peachmsg/peachwm-ipc-unstable-v2-protocol.c: protocols/peachwm-ipc-unstable-v2.xml
 	$(SCANNER) private-code $< $@
 
-smsg/peachwm-ipc-unstable-v2-protocol.o: smsg/peachwm-ipc-unstable-v2-protocol.c smsg/peachwm-ipc-unstable-v2-protocol.h
+peachmsg/peachwm-ipc-unstable-v2-protocol.o: peachmsg/peachwm-ipc-unstable-v2-protocol.c peachmsg/peachwm-ipc-unstable-v2-protocol.h
 	$(CC) $(SMSG_CFLAGS) -o $@ -c $<
 
-smsg/smsg.o: smsg/smsg.c smsg/peachwm-ipc-unstable-v2-protocol.h
+peachmsg/peachmsg.o: peachmsg/peachmsg.c peachmsg/peachwm-ipc-unstable-v2-protocol.h
 	$(CC) $(SMSG_CFLAGS) -o $@ -c $<
 
-smsg/smsg: smsg/smsg.o smsg/peachwm-ipc-unstable-v2-protocol.o
+peachmsg/peachmsg: peachmsg/peachmsg.o peachmsg/peachwm-ipc-unstable-v2-protocol.o
 	$(CC) $^ $(SMSG_CFLAGS) $(SMSG_LDLIBS) -o $@
 
 clean:
-	rm -f peachwm smsg/smsg src/*.o parser/*.o smsg/*.o \
+	rm -f peachwm peachmsg/peachmsg src/*.o parser/*.o peachmsg/*.o \
 		protocols/*.o protocols/*-protocol.h protocols/*-protocol.c \
-		smsg/*-protocol.h smsg/*-protocol.c
+		peachmsg/*-protocol.h peachmsg/*-protocol.c
 	rm -f peachwm-*.tar.gz peachwm-*.pkg.tar.* peachwm_*.deb peachwm-*.rpm
 	rm -rf _pkg packaging
 
-install: peachwm smsg/smsg
+install: peachwm peachmsg/peachmsg
 	mkdir -p $(DESTDIR)$(PREFIX)/bin
 	cp -f peachwm $(DESTDIR)$(PREFIX)/bin
 	chmod 755 $(DESTDIR)$(PREFIX)/bin/peachwm
-	cp -f smsg/smsg $(DESTDIR)$(PREFIX)/bin
-	chmod 755 $(DESTDIR)$(PREFIX)/bin/smsg
+	cp -f peachmsg/peachmsg $(DESTDIR)$(PREFIX)/bin
+	chmod 755 $(DESTDIR)$(PREFIX)/bin/peachmsg
 	mkdir -p $(DESTDIR)/etc/peachwm
 	cp -r example/* $(DESTDIR)/etc/peachwm
 
 uninstall:
 	rm -f $(DESTDIR)$(PREFIX)/bin/peachwm
-	rm -f $(DESTDIR)$(PREFIX)/bin/smsg
+	rm -f $(DESTDIR)$(PREFIX)/bin/peachmsg
 	rm -rf $(DESTDIR)/etc/peachwm
 
 # Packaging
@@ -191,7 +191,7 @@ _pkg-tarball:
 	$(MAKE) release
 	rm -rf peachwm-$(VERSION)
 	mkdir -p peachwm-$(VERSION)
-	cp -r .gitignore Makefile LICENSE README.md include src parser protocols smsg example peachwm-$(VERSION)/
+	cp -r .gitignore Makefile LICENSE README.md include src parser protocols peachmsg example peachwm-$(VERSION)/
 	cp peachwm peachwm-$(VERSION)/
 	tar -czf peachwm-$(VERSION).tar.gz peachwm-$(VERSION)
 	rm -rf peachwm-$(VERSION)
@@ -249,7 +249,7 @@ _pkg-debian: _pkg-tarball
 	mkdir -p _pkg/debian/usr/share/doc/peachwm
 	mkdir -p _pkg/debian/etc/peachwm
 	cp peachwm _pkg/debian/usr/bin/
-	cp smsg/smsg _pkg/debian/usr/bin/
+	cp peachmsg/peachmsg _pkg/debian/usr/bin/
 	cp README.md _pkg/debian/usr/share/doc/peachwm/
 	cp -r example/* _pkg/debian/etc/peachwm/
 	ver="$(VERSION)"; date="$(shell date -R)"; cat > _pkg/debian/DEBIAN/control <<- HEREDOC
@@ -327,7 +327,7 @@ _pkg-fedora: _pkg-tarball
 		%license LICENSE
 		%doc README.md
 		%{_bindir}/peachwm
-		%{_bindir}/smsg
+		%{_bindir}/peachmsg
 		%config(noreplace) /etc/peachwm/*
 		%changelog
 		* $$date PeachWM Maintainers - $$ver-1
@@ -385,7 +385,7 @@ _pkg-opensuse: _pkg-tarball
 		%license LICENSE
 		%doc README.md
 		%{_bindir}/peachwm
-		%{_bindir}/smsg
+		%{_bindir}/peachmsg
 		%config(noreplace) /etc/peachwm/*
 		%changelog
 		* $$date PeachWM Maintainers - $$ver-1
