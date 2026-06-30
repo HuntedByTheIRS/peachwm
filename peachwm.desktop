@@ -1,0 +1,5 @@
+[Desktop Entry]
+Name=PeachWM
+Comment=A lightweight Wayland compositor
+Exec=peachwm
+Type=Application

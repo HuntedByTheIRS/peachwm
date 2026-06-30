@@ -172,11 +172,14 @@ install: peachwm peachmsg/peachmsg
 	chmod 755 $(DESTDIR)$(PREFIX)/bin/peachmsg
 	mkdir -p $(DESTDIR)/etc/peachwm
 	cp -r example/* $(DESTDIR)/etc/peachwm
+	mkdir -p $(DESTDIR)$(PREFIX)/share/wayland-sessions
+	cp peachwm.desktop $(DESTDIR)$(PREFIX)/share/wayland-sessions/peachwm.desktop
 
 uninstall:
 	rm -f $(DESTDIR)$(PREFIX)/bin/peachwm
 	rm -f $(DESTDIR)$(PREFIX)/bin/peachmsg
 	rm -rf $(DESTDIR)/etc/peachwm
+	rm -f $(DESTDIR)$(PREFIX)/share/wayland-sessions/peachwm.desktop
 
 # Packaging
 #   make package             - source tarball
@@ -191,7 +194,7 @@ _pkg-tarball:
 	$(MAKE) release
 	rm -rf peachwm-$(VERSION)
 	mkdir -p peachwm-$(VERSION)
-	cp -r .gitignore Makefile LICENSE README.md include src parser protocols peachmsg example peachwm-$(VERSION)/
+	cp -r .gitignore Makefile LICENSE README.md include src parser protocols peachmsg example peachwm.desktop peachwm-$(VERSION)/
 	cp peachwm peachwm-$(VERSION)/
 	tar -czf peachwm-$(VERSION).tar.gz peachwm-$(VERSION)
 	rm -rf peachwm-$(VERSION)
@@ -248,10 +251,12 @@ _pkg-debian: _pkg-tarball
 	mkdir -p _pkg/debian/usr/bin
 	mkdir -p _pkg/debian/usr/share/doc/peachwm
 	mkdir -p _pkg/debian/etc/peachwm
+	mkdir -p _pkg/debian/usr/share/wayland-sessions
 	cp peachwm _pkg/debian/usr/bin/
 	cp peachmsg/peachmsg _pkg/debian/usr/bin/
 	cp README.md _pkg/debian/usr/share/doc/peachwm/
 	cp -r example/* _pkg/debian/etc/peachwm/
+	cp peachwm.desktop _pkg/debian/usr/share/wayland-sessions/peachwm.desktop
 	ver="$(VERSION)"; date="$(shell date -R)"; cat > _pkg/debian/DEBIAN/control <<- HEREDOC
 		Source: peachwm
 		Section: x11
@@ -328,6 +333,7 @@ _pkg-fedora: _pkg-tarball
 		%doc README.md
 		%{_bindir}/peachwm
 		%{_bindir}/peachmsg
+		%{_datadir}/wayland-sessions/peachwm.desktop
 		%config(noreplace) /etc/peachwm/*
 		%changelog
 		* $$date PeachWM Maintainers - $$ver-1
@@ -386,6 +392,7 @@ _pkg-opensuse: _pkg-tarball
 		%doc README.md
 		%{_bindir}/peachwm
 		%{_bindir}/peachmsg
+		%{_datadir}/wayland-sessions/peachwm.desktop
 		%config(noreplace) /etc/peachwm/*
 		%changelog
 		* $$date PeachWM Maintainers - $$ver-1
