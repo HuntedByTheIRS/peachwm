@@ -64,8 +64,8 @@ autostart = {
 }
 
 keybinds = {
-	{ mods = { "logo" }, key = "q", action = "spawn", args = { "alacritty" } },
-	{ mods = { "logo" }, key = "space", action = "spawn", args = { "wofi", "--show", "drun" } },
+	{ mods = { "logo" }, key = "q", action = "spawn", args = { "kitty" } },
+	{ mods = { "logo" }, key = "space", action = "spawn", args = { "rofi", "-show", "drun" } },
 	{ mods = { "logo" }, key = "w", action = "killclient" },
 	{ mods = { "logo" }, key = "v", action = "togglefloating" },
 	{ mods = { "logo" }, key = "f", action = "togglefullscreen" },
