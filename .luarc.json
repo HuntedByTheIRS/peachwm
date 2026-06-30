@@ -12,6 +12,11 @@
     "library": []
   },
   "diagnostics": {
-    "globals": []
-  }
+    "globals": [
+            "input"
+        ]
+  },
+    "diagnostics.disable": [
+        "lowercase-global"
+    ]
 }

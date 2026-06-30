@@ -1596,6 +1596,8 @@ Monitor *dirtomon(enum wlr_direction dir) {
   return selmon;
 }
 
+static bool warp_focus = true;
+
 void focusclient(Client *c, int lift) {
   struct wlr_surface *old = seat->keyboard_state.focused_surface;
   int unused_lx, unused_ly, old_client_type;
@@ -1672,6 +1674,10 @@ void focusclient(Client *c, int lift) {
 
   /* Activate the new client */
   client_activate_surface(client_surface(c), 1);
+
+  if (cfg.sloppyfocus && warp_focus)
+    wlr_cursor_warp(cursor, NULL, c->geom.x + c->geom.width / 2,
+        c->geom.y + c->geom.height / 2);
 }
 
 void focusmon(const Arg *arg) {
@@ -2594,8 +2600,11 @@ void pointerfocus(Client *c, struct wlr_surface *surface, double sx, double sy,
   struct timespec now;
 
   if (surface != seat->pointer_state.focused_surface && cfg.sloppyfocus &&
-      time && c && !client_is_unmanaged(c))
+      time && c && !client_is_unmanaged(c)) {
+    warp_focus = false;
     focusclient(c, 0);
+    warp_focus = true;
+  }
 
   /* If surface is NULL, clear pointer focus */
   if (!surface) {
