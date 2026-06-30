@@ -253,15 +253,15 @@ struct Monitor {
   struct wlr_box m;         /* monitor area, layout-relative */
   struct wlr_box w;         /* window area, layout-relative */
   struct wl_list layers[4]; /* LayerSurface.link */
-  const Layout *lt[2];
+  const Layout *lt[TAGCOUNT][2];  /* per-tag layout slots */
   int gaps;
   unsigned int seltags;
   struct wlr_ext_workspace_group_handle_v1 *ext_group;
-  unsigned int sellt;
+  unsigned int sellt[TAGCOUNT];   /* per-tag layout toggle index */
   uint32_t tagset[2];
   float mfact;
   int nmaster;
-  char ltsymbol[16];
+  char ltsymbol[TAGCOUNT][16];    /* per-tag layout symbol */
   int asleep;
   DwindleNode *dwindle_root[TAGCOUNT]; /* one tree per tag */
   Client *dwindle_focus[TAGCOUNT];     /* insertion anchor, one per tag */
@@ -324,6 +324,7 @@ static void dwindle_free_tree(DwindleNode *n);
 static void dwindle_remove_client(Client *c);
 static void master_remove_client(Client *c);
 static inline int current_tag_idx(Monitor *m);
+static inline const Layout *curlayout(Monitor *m);
 static void commitlayersurfacenotify(struct wl_listener *listener, void *data);
 static void commitnotify(struct wl_listener *listener, void *data);
 static void commitpopup(struct wl_listener *listener, void *data);
@@ -544,6 +545,14 @@ static char config_path[1024];
 
 /* function implementations */
 
+/* Helper: get current layout for the active tag on monitor m */
+static inline const Layout *
+curlayout(Monitor *m)
+{
+  int ti = current_tag_idx(m);
+  return m->lt[ti][m->sellt[ti]];
+}
+
 /* Apply a workspace default layout for the given tag index (0-based) on monitor
  * m */
 static void apply_workspace_layout(Monitor *m, int tag_idx) {
@@ -555,19 +564,19 @@ static void apply_workspace_layout(Monitor *m, int tag_idx) {
 
   for (int li = 0; li < (int)LENGTH(layouts); li++) {
     if (layouts[li].symbol && !strcmp(layout_name, layouts[li].symbol)) {
-      m->lt[m->sellt] = &layouts[li];
+      m->lt[tag_idx][m->sellt[tag_idx]] = &layouts[li];
       break;
     }
     if (!strcmp(layout_name, "dwindle") && layouts[li].arrange == dwindle) {
-      m->lt[m->sellt] = &layouts[li];
+      m->lt[tag_idx][m->sellt[tag_idx]] = &layouts[li];
       break;
     }
     if (!strcmp(layout_name, "master") && layouts[li].arrange == master) {
-      m->lt[m->sellt] = &layouts[li];
+      m->lt[tag_idx][m->sellt[tag_idx]] = &layouts[li];
       break;
     }
     if (!strcmp(layout_name, "monocle") && layouts[li].arrange == monocle) {
-      m->lt[m->sellt] = &layouts[li];
+      m->lt[tag_idx][m->sellt[tag_idx]] = &layouts[li];
       break;
     }
   }
@@ -632,7 +641,8 @@ void arrange(Monitor *m) {
   wlr_scene_node_set_enabled(&m->fullscreen_bg->node,
                              (c = focustop(m)) && c->isfullscreen);
 
-  strncpy(m->ltsymbol, m->lt[m->sellt]->symbol, LENGTH(m->ltsymbol));
+  int ti = current_tag_idx(m);
+  strncpy(m->ltsymbol[ti], curlayout(m)->symbol, LENGTH(m->ltsymbol[ti]));
 
   /* We move all clients (except fullscreen and unmanaged) to LyrTile while
    * in floating layout to avoid "real" floating clients be always on top */
@@ -645,14 +655,14 @@ void arrange(Monitor *m) {
     } else {
       wlr_scene_node_reparent(
           &c->scene->node,
-          (!m->lt[m->sellt]->arrange && c->isfloating)  ? layers[LyrTile]
-          : (m->lt[m->sellt]->arrange && c->isfloating) ? layers[LyrFloat]
+          (!curlayout(m)->arrange && c->isfloating)  ? layers[LyrTile]
+          : (curlayout(m)->arrange && c->isfloating) ? layers[LyrFloat]
                                                         : c->scene->node.parent);
     }
   }
 
-  if (m->lt[m->sellt]->arrange)
-    m->lt[m->sellt]->arrange(m);
+  if (curlayout(m)->arrange)
+    curlayout(m)->arrange(m);
   motionnotify(0, NULL, 0, 0, 0, 0);
   checkidleinhibitor(NULL);
 }
@@ -788,7 +798,7 @@ void buttonpress(struct wl_listener *listener, void *data) {
         xytonode(cursor->x, cursor->y, NULL, &target, NULL, NULL, NULL);
         if (target && target != grabc && !target->isfloating &&
             !target->isfullscreen &&
-            target->mon->lt[target->mon->sellt]->arrange)
+            curlayout(target->mon)->arrange)
           swaptiled(grabc, target);
         cursor_mode = CurNormal;
         grabc = NULL;
@@ -1227,32 +1237,37 @@ void createmon(struct wl_listener *listener, void *data) {
         m->m.y = r->y;
         m->mfact = r->mfact;
         m->nmaster = r->nmaster;
-        /* Map layout name to layouts[] entry (it's not
-         * very useful I know) */
-        m->lt[0] = &layouts[0]; /* default: floating */
+        /* Determine monitor's default layout */
+        const Layout *mon_layout = &layouts[0];
         for (int li = 0; li < (int)LENGTH(layouts); li++) {
           if (layouts[li].symbol && !strcmp(r->layout, layouts[li].symbol)) {
-            m->lt[0] = &layouts[li];
+            mon_layout = &layouts[li];
             break;
           }
-          /* also match by arrange function name string */
           if (!strcmp(r->layout, "dwindle") && layouts[li].arrange == dwindle) {
-            m->lt[0] = &layouts[li];
+            mon_layout = &layouts[li];
             break;
           }
           if (!strcmp(r->layout, "master") && layouts[li].arrange == master) {
-            m->lt[0] = &layouts[li];
+            mon_layout = &layouts[li];
             break;
           }
           if (!strcmp(r->layout, "monocle") && layouts[li].arrange == monocle) {
-            m->lt[0] = &layouts[li];
+            mon_layout = &layouts[li];
             break;
           }
         }
-        m->lt[1] = &layouts[LENGTH(layouts) > 1 && m->lt[0] != &layouts[1]];
-        /* Apply per-workspace default for the initial tag (workspace 1) */
-        apply_workspace_layout(m, 0);
-        strncpy(m->ltsymbol, m->lt[m->sellt]->symbol, LENGTH(m->ltsymbol));
+        const Layout *alt_layout = &layouts[LENGTH(layouts) > 1 && mon_layout != &layouts[1]];
+        /* Propagate monitor layout to all tags */
+        for (int ti = 0; ti < TAGCOUNT; ti++) {
+          m->lt[ti][0] = mon_layout;
+          m->lt[ti][1] = alt_layout;
+          m->sellt[ti] = 0;
+        }
+        /* Apply per-workspace default layout for all tags */
+        for (int ti = 0; ti < TAGCOUNT; ti++)
+          apply_workspace_layout(m, ti);
+        strncpy(m->ltsymbol[0], curlayout(m)->symbol, LENGTH(m->ltsymbol[0]));
         wlr_output_state_set_scale(&state, r->scale);
         wlr_output_state_set_transform(&state, r->transform);
         break;
@@ -1741,7 +1756,7 @@ void focusdir(const Arg *arg) {
   }
 
   /* In monocle layout, cycle through clients in order */
-  if (selmon->lt[selmon->sellt]->arrange == monocle) {
+  if (curlayout(selmon)->arrange == monocle) {
     Client *first = NULL, *next = NULL, *prev = NULL;
     int found = 0;
 
@@ -1790,7 +1805,7 @@ void focusdir(const Arg *arg) {
   client_center(sel, &sx, &sy);
 
   wl_list_for_each(c, &clients, link) {
-    if (c == sel || !VISIBLEON(c, selmon) || c->isfloating)
+    if (c == sel || !VISIBLEON(c, selmon))
       continue;
 
     client_center(c, &cx, &cy);
@@ -1985,14 +2000,32 @@ static void dispatch_action(const char *action,
     return;
   }
   if (!strcmp(action, "swapdir")) {
+    int dir = 0;
     if (a0 && !strcmp(a0, "left"))
-      arg.i = WLR_DIRECTION_LEFT;
+      dir = WLR_DIRECTION_LEFT;
     else if (a0 && !strcmp(a0, "right"))
-      arg.i = WLR_DIRECTION_RIGHT;
+      dir = WLR_DIRECTION_RIGHT;
     else if (a0 && !strcmp(a0, "up"))
-      arg.i = WLR_DIRECTION_UP;
+      dir = WLR_DIRECTION_UP;
     else if (a0 && !strcmp(a0, "down"))
-      arg.i = WLR_DIRECTION_DOWN;
+      dir = WLR_DIRECTION_DOWN;
+
+    /* If focused window is floating, move it instead of swapping */
+    Client *sel = focustop(selmon);
+    if (sel && sel->isfloating && !sel->isfullscreen && dir) {
+      int pixels = (nargs > 1 && args[1][0]) ? atoi(args[1]) : 5;
+      struct wlr_box new_geo = sel->geom;
+      switch (dir) {
+      case WLR_DIRECTION_LEFT:   new_geo.x -= pixels; break;
+      case WLR_DIRECTION_RIGHT:  new_geo.x += pixels; break;
+      case WLR_DIRECTION_UP:     new_geo.y -= pixels; break;
+      case WLR_DIRECTION_DOWN:   new_geo.y += pixels; break;
+      }
+      resize(sel, new_geo, 1);
+      return;
+    }
+
+    arg.i = dir;
     swapdir(&arg);
     return;
   }
@@ -2031,7 +2064,7 @@ static void dispatch_action(const char *action,
   if (!strcmp(action, "switchlayout")) {
     uint32_t i;
     for (i = 0; i < LENGTH(layouts); i++)
-      if (selmon->lt[selmon->sellt] == &layouts[i])
+      if (curlayout(selmon) == &layouts[i])
         break;
     arg.ui = (i + 1) % LENGTH(layouts);
     setlayout(&arg);
@@ -2458,7 +2491,7 @@ void moveresize(const Arg *arg) {
     return;
 
   if (arg->ui == CurMove && !grabc->isfloating &&
-      grabc->mon->lt[grabc->mon->sellt]->arrange) {
+      curlayout(grabc->mon)->arrange) {
     cursor_mode = CurTileDrag;
     grabcx = (int)round(cursor->x) - grabc->geom.x;
     grabcy = (int)round(cursor->y) - grabc->geom.y;
@@ -2613,7 +2646,8 @@ void printstatus(void) {
     printf("%s selmon %u\n", m->wlr_output->name, m == selmon);
     printf("%s tags %" PRIu32 " %" PRIu32 " %" PRIu32 " %" PRIu32 "\n",
            m->wlr_output->name, occ, m->tagset[m->seltags], sel, urg);
-    printf("%s layout %s\n", m->wlr_output->name, m->ltsymbol);
+    int _ti = current_tag_idx(m);
+    printf("%s layout %s\n", m->wlr_output->name, m->ltsymbol[_ti]);
     ext_workspace_printstatus(m);
   }
   fflush(stdout);
@@ -2814,7 +2848,7 @@ void setfloating(Client *c, int floating) {
   c->isfloating = floating;
   /* If in floating layout do not change the client's layer */
   if (!c->mon || !client_surface(c)->mapped ||
-      !c->mon->lt[c->mon->sellt]->arrange)
+      !curlayout(c->mon)->arrange)
     return;
   if (c->isscratchpad) {
     wlr_scene_node_reparent(&c->scene->node, layers[LyrScratch]);
@@ -2857,27 +2891,27 @@ void setfullscreen(Client *c, int fullscreen) {
 void setlayout(const Arg *arg) {
   if (!selmon)
     return;
+  int ti = current_tag_idx(selmon);
   /* arg->ui is an index into layouts[]. If out of range, just toggle. */
   if (arg && arg->ui < LENGTH(layouts)) {
-    if (selmon->lt[selmon->sellt] != &layouts[arg->ui])
-      selmon->sellt ^= 1;
-    selmon->lt[selmon->sellt] = &layouts[arg->ui];
+    if (selmon->lt[ti][selmon->sellt[ti]] != &layouts[arg->ui])
+      selmon->sellt[ti] ^= 1;
+    selmon->lt[ti][selmon->sellt[ti]] = &layouts[arg->ui];
   } else {
-    selmon->sellt ^= 1;
+    selmon->sellt[ti] ^= 1;
   }
-  strncpy(selmon->ltsymbol, selmon->lt[selmon->sellt]->symbol,
-          LENGTH(selmon->ltsymbol));
+  strncpy(selmon->ltsymbol[ti], selmon->lt[ti][selmon->sellt[ti]]->symbol,
+          LENGTH(selmon->ltsymbol[ti]));
 
   /* Convert windows when switching to master: set focused client as master */
-  if (selmon->lt[selmon->sellt]->arrange == master) {
-    int ti = current_tag_idx(selmon);
+  if (curlayout(selmon)->arrange == master) {
     Client *sel = focustop(selmon);
     if (sel && VISIBLEON(sel, selmon) && !sel->isfloating && !sel->isfullscreen)
       selmon->master_master[ti] = sel;
     else
       selmon->master_master[ti] = NULL;
     /* Convert to floating: float all tiled clients */
-  } else if (!selmon->lt[selmon->sellt]->arrange) {
+  } else if (!curlayout(selmon)->arrange) {
     Client *c;
     wl_list_for_each(c, &clients, link) {
       if (VISIBLEON(c, selmon) && !c->isfloating && !c->isfullscreen)
@@ -3008,29 +3042,34 @@ reapply_monitor_config(void)
 		for (int ri = 0; ri < cfg.nmonitors; ri++) {
 			const CfgMonitorRule *r = &cfg.monitors[ri];
 			if (!r->name[0] || strstr(m->wlr_output->name, r->name)) {
-				m->mfact = r->mfact;
-				m->nmaster = r->nmaster;
-				/* Map layout name */
-				m->lt[0] = &layouts[0];
-				for (int li = 0; li < (int)LENGTH(layouts); li++) {
-					if (layouts[li].symbol && !strcmp(r->layout, layouts[li].symbol)) {
-						m->lt[0] = &layouts[li];
-						break;
-					}
-					if (!strcmp(r->layout, "dwindle") && layouts[li].arrange == dwindle) {
-						m->lt[0] = &layouts[li];
-						break;
-					}
-					if (!strcmp(r->layout, "master") && layouts[li].arrange == master) {
-						m->lt[0] = &layouts[li];
-						break;
-					}
-					if (!strcmp(r->layout, "monocle") && layouts[li].arrange == monocle) {
-						m->lt[0] = &layouts[li];
-						break;
-					}
-				}
-				m->lt[1] = &layouts[LENGTH(layouts) > 1 && m->lt[0] != &layouts[1]];
+		m->mfact = r->mfact;
+		m->nmaster = r->nmaster;
+		/* Map layout name */
+		const Layout *mon_layout = &layouts[0];
+		for (int li = 0; li < (int)LENGTH(layouts); li++) {
+			if (layouts[li].symbol && !strcmp(r->layout, layouts[li].symbol)) {
+				mon_layout = &layouts[li];
+				break;
+			}
+			if (!strcmp(r->layout, "dwindle") && layouts[li].arrange == dwindle) {
+				mon_layout = &layouts[li];
+				break;
+			}
+			if (!strcmp(r->layout, "master") && layouts[li].arrange == master) {
+				mon_layout = &layouts[li];
+				break;
+			}
+			if (!strcmp(r->layout, "monocle") && layouts[li].arrange == monocle) {
+				mon_layout = &layouts[li];
+				break;
+			}
+		}
+		const Layout *alt_layout = &layouts[LENGTH(layouts) > 1 && mon_layout != &layouts[1]];
+		for (int ti = 0; ti < TAGCOUNT; ti++) {
+			m->lt[ti][0] = mon_layout;
+			m->lt[ti][1] = alt_layout;
+			m->sellt[ti] = 0;
+		}
 				/* Apply scale and transform */
 				struct wlr_output_state state;
 				wlr_output_state_init(&state);
@@ -3111,7 +3150,8 @@ on_config_reload(const Config *newcfg, void *ud)
 	reapply_client_appearance();
 	reapply_client_rules();
 	wl_list_for_each(m, &mons, link) {
-		apply_workspace_layout(m, current_tag_idx(m));
+		for (int ti = 0; ti < TAGCOUNT; ti++)
+			apply_workspace_layout(m, ti);
 		arrange(m);
 	}
 	printstatus();
@@ -3132,7 +3172,8 @@ do_reload(void)
 		reapply_client_rules();
 		Monitor *m;
 		wl_list_for_each(m, &mons, link) {
-			apply_workspace_layout(m, current_tag_idx(m));
+			for (int ti = 0; ti < TAGCOUNT; ti++)
+				apply_workspace_layout(m, ti);
 			arrange(m);
 		}
 		printstatus();
@@ -4022,7 +4063,7 @@ void swapdir(const Arg *arg) {
   if (!other)
     return;
 
-  if (selmon->lt[selmon->sellt]->arrange == dwindle) {
+  if (curlayout(selmon)->arrange == dwindle) {
     int ti = current_tag_idx(selmon);
     DwindleNode **root = &selmon->dwindle_root[ti];
     if (*root) {
@@ -4042,7 +4083,7 @@ void swapdir(const Arg *arg) {
         dwindle_recalc(*root, e);
       }
     }
-  } else if (selmon->lt[selmon->sellt]->arrange == master) {
+  } else if (curlayout(selmon)->arrange == master) {
     int ti = current_tag_idx(selmon);
     int side = selmon->master_side[ti];
 
@@ -4133,8 +4174,6 @@ void toggleview(const Arg *arg) {
     return;
 
   selmon->tagset[selmon->seltags] = newtagset;
-  /* Apply per-workspace default layout if configured */
-  apply_workspace_layout(selmon, current_tag_idx(selmon));
   focusclient(focustop(selmon), 1);
   arrange(selmon);
   printstatus();
@@ -4337,8 +4376,6 @@ void view(const Arg *arg) {
   selmon->seltags ^= 1; /* toggle sel tagset */
   if (arg->ui & TAGMASK)
     selmon->tagset[selmon->seltags] = arg->ui & TAGMASK;
-  /* Apply per-workspace default layout if configured */
-  apply_workspace_layout(selmon, current_tag_idx(selmon));
   focusclient(focustop(selmon), 1);
   arrange(selmon);
   printstatus();
@@ -4434,7 +4471,7 @@ void configurex11(struct wl_listener *listener, void *data) {
                                    event->width, event->height);
     return;
   }
-  if ((c->isfloating && c != grabc) || !c->mon->lt[c->mon->sellt]->arrange) {
+  if ((c->isfloating && c != grabc) || !curlayout(c->mon)->arrange) {
     resize(c,
            (struct wlr_box){.x = event->x - c->bw,
                             .y = event->y - c->bw,

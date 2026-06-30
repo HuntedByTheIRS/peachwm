@@ -83,13 +83,13 @@ ipc_send_output_state(IpcOutput *ipc_out)
 	{
 		uint32_t i;
 		for (i = 0; i < LENGTH(layouts); i++)
-			if (&layouts[i] == m->lt[m->sellt])
+			if (&layouts[i] == curlayout(m))
 				break;
 		zpeachwm_ipc_output_v2_send_layout(res, i);
 	}
 
 	/* layout symbol */
-	zpeachwm_ipc_output_v2_send_layout_symbol(res, m->ltsymbol);
+	zpeachwm_ipc_output_v2_send_layout_symbol(res, m->ltsymbol[current_tag_idx(m)]);
 
 	/* title/appid/fullscreen/floating */
 	if (c) {
@@ -184,8 +184,11 @@ ipc_output_handle_set_layout(struct wl_client *client,
 	Monitor *m = out->mon;
 	if (!m || idx >= LENGTH(layouts)) return;
 
-	m->lt[m->sellt] = &layouts[idx];
-	strncpy(m->ltsymbol, layouts[idx].symbol, LENGTH(m->ltsymbol));
+	int ti = current_tag_idx(m);
+	if (m->lt[ti][m->sellt[ti]] != &layouts[idx])
+		m->sellt[ti] ^= 1;
+	m->lt[ti][m->sellt[ti]] = &layouts[idx];
+	strncpy(m->ltsymbol[ti], layouts[idx].symbol, LENGTH(m->ltsymbol[ti]));
 	arrange(m);
 	printstatus();
 }
