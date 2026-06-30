@@ -40,7 +40,7 @@ rules = {
 
 monitors = {
 	-- catch-all rule; name = nil means match anything
-	{ name = nil, mfact = 0.55, nmaster = 1, scale = 1.0, layout = "dwindle", x = -1, y = -1 },
+	{ name = nil, mfact = 0.55, nmaster = 1, scale = 1.0, layout = "dwindle", x = 0, y = 0 },
 
 	-- HiDPI laptop example:
 	-- { name = "eDP-1", mfact = 0.5, nmaster = 1, scale = 2.0,
