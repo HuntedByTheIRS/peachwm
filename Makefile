@@ -173,7 +173,7 @@ install: peachwm peachmsg/peachmsg
 	mkdir -p $(DESTDIR)/etc/peachwm
 	cp -r example/* $(DESTDIR)/etc/peachwm
 	mkdir -p $(DESTDIR)$(PREFIX)/share/wayland-sessions
-	cp peachwm.desktop $(DESTDIR)$(PREFIX)/share/wayland-sessions/peachwm.desktop
+	cp -f peachwm.desktop $(DESTDIR)$(PREFIX)/share/wayland-sessions/peachwm.desktop
 
 uninstall:
 	rm -f $(DESTDIR)$(PREFIX)/bin/peachwm
