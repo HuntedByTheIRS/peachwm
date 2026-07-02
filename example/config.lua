@@ -55,6 +55,13 @@ monitors = {
 --     [3] = { layout = "monocle" },
 --   },
 -- }
+--
+effects = {
+	windows = {
+		rounded = false,
+		rounding = "none",
+	},
+}
 
 -- autostart: it starts stuff in sequence
 autostart = {
