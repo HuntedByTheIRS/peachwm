@@ -53,6 +53,7 @@ typedef struct Client {
 	struct wl_listener set_hints;
 #endif
 	unsigned int bw;
+	int corner_radius;
 	uint32_t tags;
 	int isfloating, isurgent, isfullscreen, isscratchpad;
 	uint32_t resize; /* configure serial of a pending resize */

@@ -1,7 +1,7 @@
 #pragma once
 
 #include <wlr/types/wlr_output.h>
-#include <wlr/types/wlr_scene.h>
+#include <scenefx/types/wlr_scene.h>
 #include <wlr/types/wlr_session_lock_v1.h>
 #include "wlr_ext_workspace_v1.h"
 

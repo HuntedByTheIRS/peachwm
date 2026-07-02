@@ -1,6 +1,6 @@
 #pragma once
 
-#include <wlr/types/wlr_scene.h>
+#include <scenefx/types/wlr_scene.h>
 #include "client.h"
 #include "monitor.h"
 #include "common.h"

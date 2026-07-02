@@ -35,7 +35,7 @@ XLIBS = xcb xcb-icccm
 
 DISTRO  =
 LUA_PKG = lua5.4
-PKGS    = wayland-server xkbcommon libinput $(LUA_PKG) $(XLIBS)
+PKGS    = wayland-server xkbcommon libinput $(LUA_PKG) $(XLIBS) scenefx-0.5
 
 CFLAGS   = `$(PKG_CONFIG) --cflags $(PKGS) wlroots-0.20` \
 	-I. -Iinclude -Isrc -Iparser -Iprotocols \
@@ -59,9 +59,11 @@ release: CFLAGS += -Werror -Wpedantic -Wmissing-prototypes -Wstrict-prototypes \
 	-Wold-style-definition -Wmissing-declarations -Wimplicit-fallthrough \
 	-Wno-gnu-zero-variadic-macro-arguments \
 	-Wno-c23-extensions \
+	-Wno-extra-semi \
 	-march=native
 release: peachwm peachmsg/peachmsg
 
+debug: CC = clang
 debug: CC = clang
 debug: CFLAGS += -Werror -Weverything \
 	-Wno-padded -Wno-unsafe-buffer-usage \
@@ -80,6 +82,7 @@ debug: CFLAGS += -Werror -Weverything \
 	-Wno-tentative-definition-compat -Wno-missing-variable-declarations \
 	-Wno-gnu-zero-variadic-macro-arguments \
 	-Wno-c23-extensions \
+	-Wno-extra-semi \
 	-g3 -fno-omit-frame-pointer -fsanitize=address,undefined,leak \
 	-fsanitize-trap=all
 debug: LDLIBS += -fsanitize=address,undefined,leak

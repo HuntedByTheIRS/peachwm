@@ -6,7 +6,7 @@
  * as a group, with monocle-style cycling within the scratchpad.
  */
 #include <wlr/types/wlr_output_layout.h>
-#include <wlr/types/wlr_scene.h>
+#include <scenefx/types/wlr_scene.h>
 #include <wlr/util/log.h>
 
 #include "client.h"

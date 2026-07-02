@@ -20,6 +20,7 @@
 #include <wlr/backend/libinput.h>
 #include <wlr/render/allocator.h>
 #include <wlr/render/wlr_renderer.h>
+#include <scenefx/render/fx_renderer/fx_renderer.h>
 #include <wlr/types/wlr_alpha_modifier_v1.h>
 #include <wlr/types/wlr_compositor.h>
 #include <wlr/types/wlr_cursor.h>
@@ -49,7 +50,7 @@
 #include <wlr/types/wlr_primary_selection.h>
 #include <wlr/types/wlr_primary_selection_v1.h>
 #include <wlr/types/wlr_relative_pointer_v1.h>
-#include <wlr/types/wlr_scene.h>
+#include <scenefx/types/wlr_scene.h>
 #include <wlr/types/wlr_screencopy_v1.h>
 #include <wlr/types/wlr_seat.h>
 #include <wlr/types/wlr_server_decoration.h>
@@ -384,6 +385,18 @@ static const char *custom_cfg_path;
 static char config_path[1024];
 
 /* function implementations */
+
+static int
+config_get_corner_radius(void)
+{
+  if (!cfg.effects.windows.rounded)
+    return 0;
+  if (strcmp(cfg.effects.windows.rounding, "light") == 0)
+    return 6;
+  if (strcmp(cfg.effects.windows.rounding, "heavy") == 0)
+    return 14;
+  return 0; /* "off" or unknown */
+}
 
 /* Apply a workspace default layout for the given tag index (0-based) on monitor
  * m */
@@ -1664,7 +1677,7 @@ static void gpureset(struct wl_listener *listener, void *data) {
   struct wlr_renderer *old_drw = drw;
   struct wlr_allocator *old_alloc = alloc;
   struct Monitor *m;
-  if (!(drw = wlr_renderer_autocreate(backend)))
+  if (!(drw = fx_renderer_create(backend)))
     die("couldn't recreate renderer");
 
   if (!(alloc = wlr_allocator_autocreate(backend, drw)))
@@ -2059,6 +2072,14 @@ static void locksession(struct wl_listener *listener, void *data) {
   wlr_session_lock_v1_send_locked(session_lock);
 }
 
+static void
+set_buffer_corner_radius(struct wlr_scene_buffer *buffer,
+    int sx, int sy, void *user_data)
+{
+    int radius = *(int *)user_data;
+    wlr_scene_buffer_set_corner_radius(buffer, radius);
+}
+
 static void mapnotify(struct wl_listener *listener, void *data) {
   /* Called when the surface is mapped, or ready to display on-screen. */
   Client *p = nullptr;
@@ -2070,11 +2091,7 @@ static void mapnotify(struct wl_listener *listener, void *data) {
   c->scene = client_surface(c)->data = wlr_scene_tree_create(layers[LyrTile]);
   /* Enabled later by a call to arrange() */
   wlr_scene_node_set_enabled(&c->scene->node, client_is_unmanaged(c));
-  c->scene_surface =
-      c->type == XDGShell
-          ? wlr_scene_xdg_surface_create(c->scene, c->surface.xdg)
-          : wlr_scene_subsurface_tree_create(c->scene, client_surface(c));
-  c->scene->node.data = c->scene_surface->node.data = c;
+  c->scene->node.data = c;
 
   client_get_geometry(c, &c->geom);
 
@@ -2097,6 +2114,28 @@ static void mapnotify(struct wl_listener *listener, void *data) {
                               c->isurgent ? cfg.appearance.urgent_color
                                           : cfg.appearance.border_color);
     c->border[i]->node.data = c;
+  }
+
+  {
+    int r = config_get_corner_radius();
+    c->corner_radius = r;
+    if (r > 0) {
+      wlr_scene_rect_set_corner_radii(c->border[0], corner_radii_top(r));
+      wlr_scene_rect_set_corner_radii(c->border[1], corner_radii_bottom(r));
+      wlr_scene_rect_set_corner_radii(c->border[2], corner_radii_left(r));
+      wlr_scene_rect_set_corner_radii(c->border[3], corner_radii_right(r));
+    }
+  }
+
+  c->scene_surface =
+      c->type == XDGShell
+          ? wlr_scene_xdg_surface_create(c->scene, c->surface.xdg)
+          : wlr_scene_subsurface_tree_create(c->scene, client_surface(c));
+  c->scene_surface->node.data = c;
+
+  if (c->corner_radius > 0) {
+    wlr_scene_node_for_each_buffer(&c->scene_surface->node,
+        set_buffer_corner_radius, &c->corner_radius);
   }
 
   /* Initialize client geometry with room for border */
@@ -2552,6 +2591,14 @@ void resize(Client *c, struct wlr_box geo, int interact) {
   wlr_scene_node_set_position(&c->border[3]->node, c->geom.width - c->bw,
                               c->bw);
 
+  if (c->corner_radius > 0 && !c->isfullscreen) {
+    int r = c->corner_radius;
+    wlr_scene_rect_set_corner_radii(c->border[0], corner_radii_top(r));
+    wlr_scene_rect_set_corner_radii(c->border[1], corner_radii_bottom(r));
+    wlr_scene_rect_set_corner_radii(c->border[2], corner_radii_left(r));
+    wlr_scene_rect_set_corner_radii(c->border[3], corner_radii_right(r));
+  }
+
   /* this is a no-op if size hasn't changed */
   c->resize =
       client_set_size(c, c->geom.width - 2 * c->bw, c->geom.height - 2 * c->bw);
@@ -2673,8 +2720,27 @@ static void setfullscreen(Client *c, int fullscreen) {
   c->isfullscreen = fullscreen;
   if (!c->mon || !client_surface(c)->mapped)
     return;
-  c->bw = fullscreen ? 0 : cfg.appearance.border_px;
-  client_set_fullscreen(c, fullscreen);
+	c->bw = fullscreen ? 0 : cfg.appearance.border_px;
+	if (fullscreen) {
+		c->corner_radius = 0;
+		int zero = 0;
+		wlr_scene_node_for_each_buffer(&c->scene_surface->node,
+		    set_buffer_corner_radius, &zero);
+		for (int i = 0; i < 4; i++)
+			wlr_scene_rect_set_corner_radius(c->border[i], 0);
+	} else {
+		int r = config_get_corner_radius();
+		c->corner_radius = r;
+		if (r > 0) {
+			wlr_scene_rect_set_corner_radii(c->border[0], corner_radii_top(r));
+			wlr_scene_rect_set_corner_radii(c->border[1], corner_radii_bottom(r));
+			wlr_scene_rect_set_corner_radii(c->border[2], corner_radii_left(r));
+			wlr_scene_rect_set_corner_radii(c->border[3], corner_radii_right(r));
+			wlr_scene_node_for_each_buffer(&c->scene_surface->node,
+			    set_buffer_corner_radius, &r);
+		}
+	}
+	client_set_fullscreen(c, fullscreen);
   if (c->isscratchpad) {
     wlr_scene_node_reparent(&c->scene->node, layers[LyrScratch]);
   } else {
@@ -2911,6 +2977,22 @@ reapply_client_appearance(void)
 	wl_list_for_each(c, &clients, link) {
 		c->bw = !c->isfullscreen ? cfg.appearance.border_px : 0;
 		if (!client_is_unmanaged(c)) {
+			int r = c->isfullscreen ? 0 : config_get_corner_radius();
+			c->corner_radius = r;
+			if (r > 0 && !c->isfullscreen) {
+				wlr_scene_rect_set_corner_radii(c->border[0], corner_radii_top(r));
+				wlr_scene_rect_set_corner_radii(c->border[1], corner_radii_bottom(r));
+				wlr_scene_rect_set_corner_radii(c->border[2], corner_radii_left(r));
+				wlr_scene_rect_set_corner_radii(c->border[3], corner_radii_right(r));
+			} else {
+				for (int i = 0; i < 4; i++)
+					wlr_scene_rect_set_corner_radius(c->border[i], 0);
+			}
+			int radius = r;
+			wlr_scene_node_for_each_buffer(&c->scene_surface->node,
+			    set_buffer_corner_radius, &radius);
+		}
+		if (!client_is_unmanaged(c)) {
 			float *color = c->isurgent ? cfg.appearance.urgent_color
 			             : c == focustop(c->mon) ? cfg.appearance.focus_color
 			                                     : cfg.appearance.border_color;
@@ -3064,7 +3146,7 @@ static void setup(void) {
    * can also specify a renderer using the WLR_RENDERER env var.
    * The renderer is responsible for defining the various pixel formats it
    * supports for shared memory, this configures that for clients. */
-  if (!(drw = wlr_renderer_autocreate(backend)))
+  if (!(drw = fx_renderer_create(backend)))
     die("couldn't create renderer");
   wl_signal_add(&drw->events.lost, &gpu_reset);
 

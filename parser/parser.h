@@ -104,6 +104,17 @@ typedef struct {
 	char cmd[CFG_MAX_AUTOSTART_CMD];
 } CfgAutostart;
 
+/* Effects */
+
+typedef struct {
+	bool         rounded;
+	char         rounding[CFG_MAX_STRLEN];
+} CfgEffectsWindows;
+
+typedef struct {
+	CfgEffectsWindows windows;
+} CfgEffects;
+
 /* the whole shebang */
 
 typedef struct {
@@ -135,6 +146,8 @@ typedef struct {
 
 	/* Per-workspace (tag) default layouts, indexed by tag index 0-8 */
 	char workspace_layouts[9][CFG_MAX_STRLEN];
+
+	CfgEffects    effects;
 } Config;
 
 /* Public API */

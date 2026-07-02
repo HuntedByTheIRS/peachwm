@@ -618,6 +618,37 @@ parse_autostart(lua_State *L, Config *cfg)
 	lua_pop(L, 1);
 }
 
+static void
+parse_effects(lua_State *L, CfgEffects *e)
+{
+	/* Defaults */
+	e->windows.rounded = false;
+	strcpy(e->windows.rounding, "off");
+
+	lua_getglobal(L, "effects");
+	if (!lua_istable(L, -1)) {
+		lua_pop(L, 1);
+		return;
+	}
+
+	lua_getfield(L, -1, "windows");
+	if (!lua_istable(L, -1)) {
+		lua_pop(L, 2); /* pop windows + effects */
+		return;
+	}
+
+	e->windows.rounded = lua_get_bool(L, "rounded", false);
+
+	char scratch[CFG_MAX_STRLEN] = {0};
+	lua_get_string(L, "rounding", scratch, sizeof(scratch));
+	if (!strcmp(scratch, "light") || !strcmp(scratch, "heavy"))
+		strncpy(e->windows.rounding, scratch, CFG_MAX_STRLEN - 1);
+	else
+		strcpy(e->windows.rounding, "off");
+
+	lua_pop(L, 2); /* pop windows + effects */
+}
+
 /* Public API */
 
 char *
@@ -686,6 +717,7 @@ config_load(const char *path, Config *cfg)
 	parse_buttons   (L, cfg);
 	parse_scrolls   (L, cfg);
 	parse_autostart (L, cfg);
+	parse_effects  (L, &cfg->effects);
 
 	lua_close(L);
 	return 0;
