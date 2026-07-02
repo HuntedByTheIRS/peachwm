@@ -111,7 +111,7 @@ json_puts(struct json_writer *w, const char *s)
 	json_raw(w, s, strlen(s));
 }
 
-__attribute__((__format__(__printf__, 2, 3)))
+[[gnu::format(printf, 2, 3)]]
 static void
 json_printf(struct json_writer *w, const char *fmt, ...)
 {
@@ -419,7 +419,7 @@ static void
 ipc_build_output(struct json_writer *w, Monitor *m)
 {
 	struct wlr_output *o = m->wlr_output;
-	struct wlr_output_mode *mode = NULL;
+	struct wlr_output_mode *mode = nullptr;
 	int ti;
 
 	if (o->current_mode)
@@ -737,7 +737,7 @@ ipc_handle_command(struct ipc_client *client, const char *payload,
 {
 	struct json_writer w;
 	int success = 0;
-	char *cmd = NULL;
+	char *cmd = nullptr;
 
 	if (len > 0) {
 		cmd = ecalloc(1, len + 1);
@@ -783,16 +783,16 @@ ipc_handle_command(struct ipc_client *client, const char *payload,
 		} else if (!strcmp(cmd, "floating toggle") ||
 			   !strcmp(cmd, "floating enable") ||
 			   !strcmp(cmd, "floating disable")) {
-			togglefloating(NULL);
+			togglefloating(nullptr);
 			success = 1;
 		} else if (!strcmp(cmd, "fullscreen toggle") ||
 			   !strcmp(cmd, "fullscreen enable") ||
 			   !strcmp(cmd, "fullscreen disable")) {
-			togglefullscreen(NULL);
+			togglefullscreen(nullptr);
 			success = 1;
 		} else if (!strcmp(cmd, "kill") ||
 			   !strcmp(cmd, "close")) {
-			killclient(NULL);
+			killclient(nullptr);
 			success = 1;
 		} else if (!strncmp(cmd, "workspace", 9)) {
 			const char *ws = cmd + 9;
@@ -807,7 +807,7 @@ ipc_handle_command(struct ipc_client *client, const char *payload,
 			}
 		} else if (!strcmp(cmd, "exit") ||
 			   !strcmp(cmd, "quit")) {
-			quit(NULL);
+			quit(nullptr);
 			success = 1;
 		} else if (!strcmp(cmd, "reload")) {
 			do_reload();
@@ -868,7 +868,7 @@ ipc_client_close(struct ipc_client *c)
 	wl_list_remove(&c->link);
 	if (c->src) {
 		wl_event_source_remove(c->src);
-		c->src = NULL;
+		c->src = nullptr;
 	}
 	close(c->fd);
 	free(c->payload);
@@ -1025,7 +1025,7 @@ ipc_handle_accept(int fd, uint32_t mask, void *data)
 	c->payload_size = 0;
 	c->payload_len = 0;
 	c->payload_alloc = 0;
-	c->payload = NULL;
+	c->payload = nullptr;
 	c->subscribed = 0;
 
 	src = wl_event_loop_add_fd(ipc_event_loop, cfd,
@@ -1120,7 +1120,7 @@ ipc_socket_init(void)
 
 	ipc_listen_src = wl_event_loop_add_fd(
 		ipc_event_loop, fd, WL_EVENT_READABLE,
-		ipc_handle_accept, NULL);
+		ipc_handle_accept, nullptr);
 	if (!ipc_listen_src) {
 		wlr_log(WLR_ERROR,
 			"ipc: wl_event_loop_add_fd failed");
@@ -1144,7 +1144,7 @@ ipc_socket_finish(void)
 
 	if (ipc_listen_src) {
 		wl_event_source_remove(ipc_listen_src);
-		ipc_listen_src = NULL;
+		ipc_listen_src = nullptr;
 	}
 	if (ipc_listen_fd >= 0) {
 		close(ipc_listen_fd);

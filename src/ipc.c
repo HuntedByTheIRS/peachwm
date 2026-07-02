@@ -8,7 +8,7 @@
 #include "util.h"
 
 /* IPC globals */
-struct wl_global *ipc_global = NULL;
+struct wl_global *ipc_global = nullptr;
 struct wl_list ipc_managers; /* IpcManager.link */
 
 /* helpers */
@@ -20,7 +20,7 @@ ipc_output_for_mon(IpcManager *mgr, Monitor *m)
 	wl_list_for_each(o, &mgr->outputs, link)
 		if (o->mon == m)
 			return o;
-	return NULL;
+	return nullptr;
 }
 
 /* Send the full state of monitor m to one IpcOutput resource */
@@ -208,7 +208,7 @@ ipc_manager_handle_get_output(struct wl_client *client, struct wl_resource *reso
 {
 	IpcManager *mgr = wl_resource_get_user_data(resource);
 	struct wlr_output *wlr_out = wlr_output_from_resource(output_resource);
-	Monitor *m = (wlr_out && wlr_out->data) ? wlr_out->data : NULL;
+	Monitor *m = (wlr_out && wlr_out->data) ? wlr_out->data : nullptr;
 
 	IpcOutput *out = ecalloc(1, sizeof(*out));
 	out->mon = m;
@@ -272,5 +272,5 @@ ipc_init(void)
 {
 	wl_list_init(&ipc_managers);
 	ipc_global = wl_global_create(dpy, &zpeachwm_ipc_manager_v2_interface,
-			2, NULL, ipc_bind);
+			2, nullptr, ipc_bind);
 }

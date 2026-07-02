@@ -111,7 +111,7 @@ ext_workspace_cleanupmon(Monitor *m)
 	wlr_ext_workspace_group_handle_v1_output_leave(
 			m->ext_group, m->wlr_output);
 	wlr_ext_workspace_group_handle_v1_destroy(m->ext_group);
-	m->ext_group = NULL;
+	m->ext_group = nullptr;
 }
 
 /* status */
@@ -143,7 +143,7 @@ handle_ext_commit(struct wl_listener *listener, void *data)
 	struct wlr_ext_workspace_v1_request *req;
 
 	wl_list_for_each(req, event->requests, link) {
-		struct ext_workspace *ws = NULL;
+		struct ext_workspace *ws = nullptr;
 		struct ext_workspace *w;
 
 		switch (req->type) {

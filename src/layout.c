@@ -29,7 +29,7 @@ void       client_set_suspended(Client *c, int suspended);
  * ================================================================ */
 
 const Layout layouts[] = {
-	{"><>", NULL},
+	{"><>", nullptr},
 	{"[T]", dwindle},
 	{"[M]", master},
 	{"[]",  monocle},
@@ -93,9 +93,9 @@ DwindleNode *
 dwindle_find_leaf(DwindleNode *n, Client *c)
 {
 	if (!n)
-		return NULL;
+		return nullptr;
 	if (!n->is_node)
-		return n->client == c ? n : NULL;
+		return n->client == c ? n : nullptr;
 	DwindleNode *r = dwindle_find_leaf(n->children[0], c);
 	return r ? r : dwindle_find_leaf(n->children[1], c);
 }
@@ -104,7 +104,7 @@ static DwindleNode *
 dwindle_first_leaf(DwindleNode *n)
 {
 	if (!n)
-		return NULL;
+		return nullptr;
 	while (n->is_node)
 		n = n->children[0];
 	return n;
@@ -165,7 +165,7 @@ dwindle_insert(DwindleNode **root, Client *new_c, Client *focused)
 		return;
 	}
 
-	DwindleNode *opening_on = focused ? dwindle_find_leaf(*root, focused) : NULL;
+	DwindleNode *opening_on = focused ? dwindle_find_leaf(*root, focused) : nullptr;
 	if (!opening_on)
 		opening_on = dwindle_first_leaf(*root);
 
@@ -203,7 +203,7 @@ dwindle_remove(DwindleNode **root, Client *c)
 	DwindleNode *parent = leaf->parent;
 	if (!parent) {
 		free(leaf);
-		*root = NULL;
+		*root = nullptr;
 		return;
 	}
 
@@ -329,7 +329,7 @@ dwindle(Monitor *m)
 static void
 master_arrange(Monitor *m, int ti)
 {
-	Client *c, *master_c = NULL;
+	Client *c, *master_c = nullptr;
 	Client *stack[256];
 	int nstack = 0, n = 0;
 
@@ -425,7 +425,7 @@ master_remove_client(Client *c)
 		return;
 	for (int i = 0; i < TAGCOUNT; i++) {
 		if (m->master_master[i] == c)
-			m->master_master[i] = NULL;
+			m->master_master[i] = nullptr;
 	}
 }
 

@@ -53,7 +53,7 @@ void scratchpad_arrange(Monitor *m) {
 
 void togglescratchpad(const Arg *arg) {
 	Monitor *m = selmon;
-	Client *c, *focus = NULL;
+	Client *c, *focus = nullptr;
 
 	if (!m)
 		return;
@@ -92,7 +92,7 @@ void togglescratchpad(const Arg *arg) {
 				client_set_suspended(c, 1);
 			}
 		}
-		m->scratchpad_current = NULL;
+		m->scratchpad_current = nullptr;
 		/* Restore focus to previous client */
 		if (m->scratchpad_prev_focus && VISIBLEON(m->scratchpad_prev_focus, m))
 			focusclient(m->scratchpad_prev_focus, 1);
@@ -114,7 +114,7 @@ void swapdirscratchpad(const Arg *arg) {
 
 	if (sel->isscratchpad) {
 		/* Move FROM scratchpad to current workspace */
-		Client *next = NULL;
+		Client *next = nullptr;
 		sel->isscratchpad = 0;
 		sel->isfloating = 0;
 		sel->tags = selmon->tagset[selmon->seltags];
@@ -127,11 +127,11 @@ void swapdirscratchpad(const Arg *arg) {
 				}
 			}
 			if (!next)
-				selmon->scratchpad_current = NULL;
+				selmon->scratchpad_current = nullptr;
 			else
 				selmon->scratchpad_current = next;
 		} else {
-			selmon->scratchpad_current = NULL;
+			selmon->scratchpad_current = nullptr;
 		}
 		/* setfloating reparents + arranges; let it manage visibility */
 		setfloating(sel, 0);
@@ -177,7 +177,7 @@ void swapdirscratchpad(const Arg *arg) {
 
 void scratchpad_focusdir_cycle(const Arg *arg) {
 	Client *sel = focustop(selmon);
-	Client *c, *first = NULL, *next = NULL, *prev = NULL;
+	Client *c, *first = nullptr, *next = nullptr, *prev = nullptr;
 	int found = 0;
 
 	wl_list_for_each(c, &clients, link) {
@@ -196,7 +196,7 @@ void scratchpad_focusdir_cycle(const Arg *arg) {
 		prev = c;
 	}
 
-	Client *target = NULL;
+	Client *target = nullptr;
 	if (arg->i == WLR_DIRECTION_DOWN || arg->i == WLR_DIRECTION_RIGHT) {
 		if (next)
 			target = next;

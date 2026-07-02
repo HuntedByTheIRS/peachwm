@@ -2,7 +2,6 @@
 #define PEACHWM_PARSER_H
 
 #include <stdint.h>
-#include <stdbool.h>
 #include <wayland-server-core.h>
 
 /* Maximum lengths. Good for the soul, they say */

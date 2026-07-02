@@ -721,7 +721,7 @@ config_autostart_run(const Config *cfg)
 			continue;
 		}
 		if (cpid == 0) {
-			execl("/bin/sh", "sh", "-c", cmd, NULL);
+			execl("/bin/sh", "sh", "-c", cmd, nullptr);
 			fprintf(stderr, "peachwm autostart: exec '%s': %s\n",
 			        cmd, strerror(errno));
 			_exit(1);
@@ -750,7 +750,7 @@ config_autostart_run(const Config *cfg)
 				     now.tv_nsec >= deadline.tv_nsec))
 					break; /* looks like a daemon, move on */
 				struct timespec sl = { .tv_sec = 0, .tv_nsec = 50 * 1000 * 1000 };
-				nanosleep(&sl, NULL);
+				nanosleep(&sl, nullptr);
 			}
 		}
 	}
@@ -766,7 +766,7 @@ watch_dispatch(int fd, uint32_t mask, void *data)
 	WatchState *ws = data;
 
 	/* Drain the inotify events */
-	_Alignas(struct inotify_event) char buf[4096];
+	alignas(struct inotify_event) char buf[4096];
 	ssize_t len = read(fd, buf, sizeof(buf));
 	if (len < 0) {
 		if (errno != EAGAIN)
@@ -807,13 +807,13 @@ config_watch_start(struct wl_event_loop *loop, const char *path,
                    config_reload_cb cb, void *userdata)
 {
 	WatchState *ws = calloc(1, sizeof(*ws));
-	if (!ws) return NULL;
+	if (!ws) return nullptr;
 
 	ws->inotify_fd = inotify_init1(IN_NONBLOCK | IN_CLOEXEC);
 	if (ws->inotify_fd < 0) {
 		perror("peachwm config: inotify_init1");
 		free(ws);
-		return NULL;
+		return nullptr;
 	}
 
 	ws->watch_fd = inotify_add_watch(ws->inotify_fd, path,
@@ -822,7 +822,7 @@ config_watch_start(struct wl_event_loop *loop, const char *path,
 		perror("peachwm config: inotify_add_watch");
 		close(ws->inotify_fd);
 		free(ws);
-		return NULL;
+		return nullptr;
 	}
 
 	strncpy(ws->path, path, sizeof(ws->path) - 1);
@@ -840,7 +840,7 @@ config_watch_start(struct wl_event_loop *loop, const char *path,
 		        "Classic.\n");
 		close(ws->inotify_fd);
 		free(ws);
-		return NULL;
+		return nullptr;
 	}
 
 	ws->event_src = src;

@@ -7,7 +7,7 @@
 
 #include "util.h"
 
-_Noreturn void
+[[noreturn]] void
 die(const char *fmt, ...) {
 	va_list ap;
 
@@ -17,7 +17,7 @@ die(const char *fmt, ...) {
 
 	if (fmt[0] && fmt[strlen(fmt)-1] == ':') {
 		fputc(' ', stderr);
-		perror(NULL);
+		perror(nullptr);
 	} else {
 		fputc('\n', stderr);
 	}

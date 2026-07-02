@@ -52,8 +52,8 @@ toplevel_from_wlr_surface(struct wlr_surface *s, Client **pc, LayerSurface **pl)
 	struct wlr_xdg_surface *xdg_surface, *tmp_xdg_surface;
 	struct wlr_surface *root_surface;
 	struct wlr_layer_surface_v1 *layer_surface;
-	Client *c = NULL;
-	LayerSurface *l = NULL;
+	Client *c = nullptr;
+	LayerSurface *l = nullptr;
 	int type = -1;
 #ifdef XWAYLAND
 	struct wlr_xwayland_surface *xsurface;
@@ -79,7 +79,7 @@ toplevel_from_wlr_surface(struct wlr_surface *s, Client **pc, LayerSurface **pl)
 
 	xdg_surface = wlr_xdg_surface_try_from_wlr_surface(root_surface);
 	while (xdg_surface) {
-		tmp_xdg_surface = NULL;
+		tmp_xdg_surface = nullptr;
 		switch (xdg_surface->role) {
 		case WLR_XDG_SURFACE_ROLE_POPUP:
 			if (!xdg_surface->popup || !xdg_surface->popup->parent)
@@ -189,16 +189,16 @@ client_get_geometry(Client *c, struct wlr_box *geom)
 Client *
 client_get_parent(Client *c)
 {
-	Client *p = NULL;
+	Client *p = nullptr;
 #ifdef XWAYLAND
 	if (client_is_x11(c)) {
 		if (c->surface.xwayland->parent)
-			toplevel_from_wlr_surface(c->surface.xwayland->parent->surface, &p, NULL);
+			toplevel_from_wlr_surface(c->surface.xwayland->parent->surface, &p, nullptr);
 		return p;
 	}
 #endif
 	if (c->surface.xdg->toplevel->parent)
-		toplevel_from_wlr_surface(c->surface.xdg->toplevel->parent->base->surface, &p, NULL);
+		toplevel_from_wlr_surface(c->surface.xdg->toplevel->parent->base->surface, &p, nullptr);
 	return p;
 }
 
@@ -283,7 +283,7 @@ client_is_stopped(Client *c)
 		return 0;
 #endif
 
-	wl_client_get_credentials(c->surface.xdg->client->client, &pid, NULL, NULL);
+	wl_client_get_credentials(c->surface.xdg->client->client, &pid, nullptr, nullptr);
 	if (waitid(P_PID, pid, &in, WNOHANG|WCONTINUED|WSTOPPED|WNOWAIT) < 0) {
 		/* This process is not our child process, while is very unlikely that
 		 * it is stopped, in order to do not skip frames, assume that it is. */
@@ -316,7 +316,7 @@ client_notify_enter(struct wlr_surface *s, struct wlr_keyboard *kb)
 		wlr_seat_keyboard_notify_enter(seat, s, kb->keycodes,
 				kb->num_keycodes, &kb->modifiers);
 	else
-		wlr_seat_keyboard_notify_enter(seat, s, NULL, 0, NULL);
+		wlr_seat_keyboard_notify_enter(seat, s, nullptr, 0, nullptr);
 }
 
 void
