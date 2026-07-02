@@ -7,6 +7,9 @@ VERSION = `git describe --tags --dirty 2>/dev/null || echo 0.2`
 PREFIX  = /usr/local
 PKG_CONFIG = pkg-config
 
+# Print logo on every make invocation
+$(info $(file < LOGO))
+
 # Auto-detect compiler: TCC > Clang > GCC (only if CC not set)
 ifeq ($(origin CC),default)
   ifeq ($(shell which tcc 2>/dev/null),)
