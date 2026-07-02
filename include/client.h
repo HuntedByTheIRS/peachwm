@@ -14,6 +14,7 @@ struct wlr_layer_surface_v1;
 struct wlr_xdg_surface;
 struct wlr_xwayland_surface;
 struct wlr_xdg_toplevel_decoration_v1;
+struct wlr_scene_shadow;
 
 /* Client types */
 enum { XDGShell, LayerShell, X11 };
@@ -54,6 +55,7 @@ typedef struct Client {
 #endif
 	unsigned int bw;
 	int corner_radius;
+	struct wlr_scene_shadow *shadow;
 	uint32_t tags;
 	int isfloating, isurgent, isfullscreen, isscratchpad;
 	uint32_t resize; /* configure serial of a pending resize */

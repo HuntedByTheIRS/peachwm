@@ -59,7 +59,23 @@ monitors = {
 effects = {
 	windows = {
 		rounded = false,
-		rounding = "none",
+		rounding = "none", -- off, light, or heavy
+
+		shadows = {
+			shadows = true,
+			shadow_radius = 24,
+			shadow_offset_x = 0,
+			shadow_offset_y = 8,
+			shadow_color = 0x000000ff,
+			shadow_opacity = 0.30,
+			shadow_expand = 12,
+
+			fullscreen_shadows = false,
+			nogaps_shadows = false,
+			maximized_shadows = false,
+			only_floating = false,
+			shadow_clip = true,
+		},
 	},
 }
 
