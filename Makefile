@@ -40,7 +40,7 @@ CFLAGS   = `$(PKG_CONFIG) --cflags $(PKGS) wlroots-0.20` \
 	$(XWAYLAND) -g -Wall -Wextra -Wno-unused-parameter -O2 -std=c23
 LDLIBS   = `$(PKG_CONFIG) --libs $(PKGS) wlroots-0.20` -lm $(LIBS)
 
-SMSG_CFLAGS = `$(PKG_CONFIG) --cflags wayland-client` -Wall -Wextra -Wno-unused-parameter
+SMSG_CFLAGS = `$(PKG_CONFIG) --cflags wayland-client` -Wall -Wextra -Wno-unused-parameter -std=c23
 SMSG_LDLIBS = `$(PKG_CONFIG) --libs wayland-client`
 
 SCANNER   = $(shell $(PKG_CONFIG) --variable=wayland_scanner wayland-scanner)

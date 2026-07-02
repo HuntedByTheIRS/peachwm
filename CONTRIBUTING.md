@@ -72,7 +72,7 @@ PeachWM follows a consistent style throughout the codebase. Please match it.
 
 ### Build and Compiler
 
-- The project uses **C11** (`-std=c11`).
+- The project uses **C23** (`-std=c23`).
 - The **Makefile** is POSIX make. Do not introduce autotools, CMake, or meson.
 - Ensure your code compiles cleanly with `make debug` and `make release` --
   CI checks both targets.

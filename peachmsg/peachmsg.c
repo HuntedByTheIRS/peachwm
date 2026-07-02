@@ -98,7 +98,7 @@ peachwm_ipc_output_active(void *data, struct zpeachwm_ipc_output_v2 *peachwm_ipc
 	}
 	if (active) {
 		free(focused_output);
-		focused_output = NULL;
+		focused_output = nullptr;
 		if (data) {
 			focused_output = strdup(data);
 			if (!focused_output)
@@ -309,7 +309,7 @@ wl_output_name(void *data, struct wl_output *output, const char *name)
 		struct zpeachwm_ipc_output_v2 *peachwm_ipc_output =
 			zpeachwm_ipc_manager_v2_get_output(peachwm_ipc_manager, output);
 		zpeachwm_ipc_output_v2_add_listener(peachwm_ipc_output, &peachwm_ipc_output_listener,
-				output_name && *output_name ? NULL : strdup(name));
+				output_name && *output_name ? nullptr : strdup(name));
 	}
 }
 
@@ -354,7 +354,7 @@ global_add(void *data, struct wl_registry *wl_registry,
 		struct wl_output *o = wl_registry_bind(
 				wl_registry, name, &wl_output_interface,
 				WL_OUTPUT_NAME_SINCE_VERSION);
-		wl_output_add_listener(o, &output_listener, outputs ? &outputs[outputcount] : NULL);
+		wl_output_add_listener(o, &output_listener, outputs ? &outputs[outputcount] : nullptr);
 		if (!outputs) return;
 		if (outputcount >= outputs_buflen) {
 			outputs_buflen *= 2;
@@ -370,7 +370,7 @@ global_add(void *data, struct wl_registry *wl_registry,
 	} else if (strcmp(interface, zpeachwm_ipc_manager_v2_interface.name) == 0) {
 		peachwm_ipc_manager = wl_registry_bind(wl_registry, name,
 			&zpeachwm_ipc_manager_v2_interface, version < 2 ? version : 2);
-		zpeachwm_ipc_manager_v2_add_listener(peachwm_ipc_manager, &peachwm_ipc_listener, NULL);
+		zpeachwm_ipc_manager_v2_add_listener(peachwm_ipc_manager, &peachwm_ipc_listener, nullptr);
 	}
 }
 
@@ -504,7 +504,7 @@ main(int argc, char *argv[])
 	if (mode & GET && !(oflag || tflag || lflag || Oflag || Tflag || Lflag || Pflag || Fflag || cflag || vflag || mflag || fflag))
 		oflag = tflag = lflag = cflag = vflag = mflag = fflag = Fflag = 1;
 
-	display = wl_display_connect(NULL);
+	display = wl_display_connect(nullptr);
 	if (!display) die("bad display");
 
 	if (Pflag) {
@@ -519,7 +519,7 @@ main(int argc, char *argv[])
 	registry = wl_display_get_registry(display);
 	if (!registry) die("bad registry");
 
-	wl_registry_add_listener(registry, &registry_listener, NULL);
+	wl_registry_add_listener(registry, &registry_listener, nullptr);
 
 	wl_display_dispatch(display);
 	wl_display_roundtrip(display);

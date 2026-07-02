@@ -41,13 +41,13 @@ extern char *argv0;
 
 #define ARGNUMF()	(brk_ = 1, estrtonum(argv[0], 0, INT_MAX))
 
-#define EARGF(x)	((argv[0][1] == '\0' && argv[1] == NULL)?\
+#define EARGF(x)	((argv[0][1] == '\0' && argv[1] == nullptr)?\
 				((x), abort(), (char *)0) :\
 				(brk_ = 1, (argv[0][1] != '\0')?\
 					(&argv[0][1]) :\
 					(argc--, argv++, argv[0])))
 
-#define ARGF()		((argv[0][1] == '\0' && argv[1] == NULL)?\
+#define ARGF()		((argv[0][1] == '\0' && argv[1] == nullptr)?\
 				(char *)0 :\
 				(brk_ = 1, (argv[0][1] != '\0')?\
 					(&argv[0][1]) :\
