@@ -30,6 +30,7 @@ ecalloc(size_t nmemb, size_t size)
 {
 	void *p;
 
+	if (!nmemb || !size) { nmemb = 1; size = 1; }
 	if (!(p = calloc(nmemb, size)))
 		die("calloc:");
 	return p;

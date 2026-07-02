@@ -34,7 +34,7 @@ extern struct wl_list clients;
 
 /* Internal watcher state */
 
-typedef struct {
+typedef struct WatchState {
 	int                  inotify_fd;
 	int                  watch_fd;
 	char                 path[1024];
@@ -802,7 +802,7 @@ watch_dispatch(int fd, uint32_t mask, void *data)
 	return 0;
 }
 
-struct wl_event_source *
+WatchState *
 config_watch_start(struct wl_event_loop *loop, const char *path,
                    config_reload_cb cb, void *userdata)
 {
@@ -845,14 +845,13 @@ config_watch_start(struct wl_event_loop *loop, const char *path,
 
 	ws->event_src = src;
 	fprintf(stderr, "peachwm config: watching '%s'\n", path);
-	return (struct wl_event_source *)ws;
+	return ws;
 }
 
 void
-config_watch_stop(struct wl_event_source *src)
+config_watch_stop(WatchState *ws)
 {
-	if (!src) return;
-	WatchState *ws = (WatchState *)src;
+	if (!ws) return;
 	wl_event_source_remove(ws->event_src);
 	close(ws->inotify_fd); 
 	free(ws);

@@ -80,8 +80,8 @@ static void
 peachwm_ipc_output_toggle_visibility(void *data, struct zpeachwm_ipc_output_v2 *peachwm_ipc_output)
 {
 	if (!vflag) return;
-	char *oname = data;
-	if (oname) printf("%s ", oname);
+	char *oname = data ? (char *)data : "";
+	printf("%s ", oname);
 	printf("toggle\n");
 }
 
@@ -89,15 +89,25 @@ static void
 peachwm_ipc_output_active(void *data, struct zpeachwm_ipc_output_v2 *peachwm_ipc_output,
 	uint32_t active)
 {
-	if (active && (!output_name || !*output_name))
-		output_name = strdup(data);
+	if (active && (!output_name || !*output_name)) {
+		if (data) {
+			output_name = strdup(data);
+			if (!output_name)
+				fprintf(stderr, "peachmsg: strdup failed\n");
+		}
+	}
 	if (active) {
 		free(focused_output);
-		focused_output = data ? strdup(data) : NULL;
+		focused_output = NULL;
+		if (data) {
+			focused_output = strdup(data);
+			if (!focused_output)
+				fprintf(stderr, "peachmsg: strdup failed\n");
+		}
 	}
 	if (!oflag) return;
-	char *oname = data;
-	if (oname) printf("%s ", oname);
+	char *oname = data ? (char *)data : "";
+	printf("%s ", oname);
 	printf("selmon %u\n", !!active);
 }
 
@@ -110,7 +120,8 @@ peachwm_ipc_output_tag(void *data, struct zpeachwm_ipc_output_v2 *peachwm_ipc_ou
 	if (state == ZPEACHWM_IPC_OUTPUT_V2_TAG_STATE_ACTIVE) urg |= 1<<tag;
 	if (clients > 0) occ |= 1<<tag;
 	if (!(mode & GET)) return;
-	if (data) printf("%s ", (char *)data);
+	char *oname = data ? (char *)data : "";
+	printf("%s ", oname);
 	printf("tag %u %u %u %u\n", tag, state, clients, focused);
 }
 
@@ -125,7 +136,8 @@ peachwm_ipc_output_layout_symbol(void *data, struct zpeachwm_ipc_output_v2 *peac
 	const char *layout)
 {
 	if (!(lflag && mode & GET)) return;
-	if (data) printf("%s ", (char *)data);
+	char *oname = data ? (char *)data : "";
+	printf("%s ", oname);
 	printf("layout %s\n", layout);
 }
 
@@ -134,7 +146,8 @@ peachwm_ipc_output_title(void *data, struct zpeachwm_ipc_output_v2 *peachwm_ipc_
 	const char *title)
 {
 	if (!(cflag && mode & GET)) return;
-	if (data) printf("%s ", (char *)data);
+	char *oname = data ? (char *)data : "";
+	printf("%s ", oname);
 	printf("title %s\n", title);
 }
 
@@ -143,7 +156,8 @@ peachwm_ipc_output_appid(void *data, struct zpeachwm_ipc_output_v2 *peachwm_ipc_
 	const char *appid)
 {
 	if (!(cflag && mode & GET)) return;
-	if (data) printf("%s ", (char *)data);
+	char *oname = data ? (char *)data : "";
+	printf("%s ", oname);
 	printf("appid %s\n", appid);
 }
 
@@ -152,7 +166,8 @@ peachwm_ipc_output_fullscreen(void *data, struct zpeachwm_ipc_output_v2 *peachwm
 	uint32_t is_fullscreen)
 {
 	if (!mflag) return;
-	if (data) printf("%s ", (char *)data);
+	char *oname = data ? (char *)data : "";
+	printf("%s ", oname);
 	printf("fullscreen %u\n", is_fullscreen);
 }
 
@@ -161,7 +176,8 @@ peachwm_ipc_output_floating(void *data, struct zpeachwm_ipc_output_v2 *peachwm_i
 	uint32_t is_floating)
 {
 	if (!fflag) return;
-	if (data) printf("%s ", (char *)data);
+	char *oname = data ? (char *)data : "";
+	printf("%s ", oname);
 	printf("floating %u\n", is_floating);
 }
 
@@ -280,6 +296,8 @@ wl_output_name(void *data, struct wl_output *output, const char *name)
 	if (outputs) {
 		struct output *o = (struct output *)data;
 		o->output_name = strdup(name);
+		if (!o->output_name)
+			fprintf(stderr, "peachmsg: strdup failed\n");
 		printf("+ ");
 	}
 	if (Oflag) printf("%s\n", name);
@@ -340,7 +358,12 @@ global_add(void *data, struct wl_registry *wl_registry,
 		if (!outputs) return;
 		if (outputcount >= outputs_buflen) {
 			outputs_buflen *= 2;
-			outputs = reallocarray(outputs, outputs_buflen, sizeof(struct output));
+			struct output *new_outputs = reallocarray(outputs, outputs_buflen, sizeof(struct output));
+			if (!new_outputs) {
+				fprintf(stderr, "peachmsg: reallocarray failed\n");
+			} else {
+				outputs = new_outputs;
+			}
 		}
 		outputs[outputcount].name = name;
 		outputcount++;

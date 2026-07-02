@@ -78,12 +78,12 @@ debug: peachwm peachmsg/peachmsg
 
 # Compositor
 
-peachwm: src/peachwm.o src/util.o parser/parser.o \
-	src/wlr_ext_workspace_v1.o $(PROTO_OBJS)
+peachwm: src/peachwm.o src/scratchpad.o src/layout.o src/util.o src/client.o src/ipc.o src/ipc_socket.o \
+	parser/parser.o src/ext_workspace.o src/wlr_ext_workspace_v1.o $(PROTO_OBJS)
 	$(CC) $^ $(LDFLAGS) $(LDLIBS) -o $@
 
 src/peachwm.o: src/peachwm.c include/client.h include/ipc.h \
-	include/ipc_socket.h include/ext-workspace.h \
+	include/ipc_socket.h include/ext_workspace.h \
 	src/wlr_ext_workspace_v1.h parser/parser.h \
 	protocols/peachwm-ipc-unstable-v2-protocol.h \
 	protocols/ext-workspace-v1-protocol.h \
@@ -94,11 +94,30 @@ src/peachwm.o: src/peachwm.c include/client.h include/ipc.h \
 	protocols/xdg-shell-protocol.h
 	$(CC) $(CFLAGS) -o $@ -c $<
 
+src/scratchpad.o: src/scratchpad.c src/scratchpad.h include/monitor.h include/client.h src/layout.h
+	$(CC) $(CFLAGS) -o $@ -c $<
+
+src/layout.o: src/layout.c src/layout.h include/monitor.h include/client.h
+	$(CC) $(CFLAGS) -o $@ -c $<
+
 src/util.o: src/util.c src/util.h
+	$(CC) $(CFLAGS) -o $@ -c $<
+
+src/client.o: src/client.c include/client.h include/monitor.h
+	$(CC) $(CFLAGS) -o $@ -c $<
+
+src/ipc.o: src/ipc.c include/ipc.h include/monitor.h
+	$(CC) $(CFLAGS) -o $@ -c $<
+
+src/ipc_socket.o: src/ipc_socket.c include/ipc_socket.h \
+	include/ipc.h include/client.h include/monitor.h src/util.h
 	$(CC) $(CFLAGS) -o $@ -c $<
 
 src/wlr_ext_workspace_v1.o: src/wlr_ext_workspace_v1.c \
 	src/wlr_ext_workspace_v1.h protocols/ext-workspace-v1-protocol.h
+	$(CC) $(CFLAGS) -o $@ -c $<
+
+src/ext_workspace.o: src/ext_workspace.c include/ext_workspace.h include/monitor.h
 	$(CC) $(CFLAGS) -o $@ -c $<
 
 parser/parser.o: parser/parser.c parser/parser.h

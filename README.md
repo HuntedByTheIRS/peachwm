@@ -12,9 +12,9 @@
 
 ## peachwm
 
-peachwm is a fork of [swindle](https://github.com/kantiankant/swindle)
+~~peachwm is a fork of [swindle](https://github.com/kantiankant/swindle)~~
+PeachWM is now a independent wayland compositor based on WLRoots
 that is designed to be similar to MangoWC, while remaining lightweight.
-swindle is also fully GPLv3 licensed.
 
 PeachWM is maintained by [HuntedByTheIRS](https://github.com/HuntedByTheIRS).
 

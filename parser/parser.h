@@ -149,13 +149,15 @@ void config_autostart_run(const Config *cfg);
 
 typedef void (*config_reload_cb)(const Config *cfg, void *userdata);
 
-struct wl_event_source *config_watch_start(
+typedef struct WatchState WatchState;
+
+WatchState *config_watch_start(
 	struct wl_event_loop *loop,
 	const char           *path,
 	config_reload_cb      cb,
 	void                 *userdata
 );
 
-void config_watch_stop(struct wl_event_source *src);
+void config_watch_stop(WatchState *ws);
 
 #endif

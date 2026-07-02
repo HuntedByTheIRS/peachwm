@@ -1,35 +1,41 @@
-/* My shitty port of Mango's ext-workspace.h for my compositor; 
- * thanks DreamMaoMao for doing most of the heavy lifting 
- * by actually writing the thing, it didn't work the first 
- * few tries and I barely have any idea how this code works anyway. 
- * To say that it's the eighth wonder of the world 
+/*
+ * ext_workspace.c — protocol glue for wlr_ext_workspace_v1
+ *
+ * Thanks DreamMaoMao for doing most of the heavy lifting
+ * by actually writing the thing, it didn't work the first
+ * few tries and I barely have any idea how this code works anyway.
+ * To say that it's the eighth wonder of the world
  * would be an understatement
-*/
+ */
+#include <stdlib.h>
 
-#include "wlr_ext_workspace_v1.h"
+#include "ext_workspace.h"
+#include "client.h"
+#include "ipc.h"
+#include "monitor.h"
+#include "util.h"
 
-#define EXT_WORKSPACE_CAPS \
-	(EXT_WORKSPACE_HANDLE_V1_WORKSPACE_CAPABILITIES_ACTIVATE | \
-	 EXT_WORKSPACE_HANDLE_V1_WORKSPACE_CAPABILITIES_DEACTIVATE)
+#define LENGTH(X) (sizeof X / sizeof X[0])
+#define TAGMASK ((1u << TAGCOUNT) - 1)
 
-/* types */
+/* Forward declarations from peachwm.c */
+typedef union {
+	int i;
+	uint32_t ui;
+	float f;
+	const void *v;
+} Arg;
 
-struct ext_workspace {
-	struct wl_list link;           
-	uint32_t tag;                  
-	Monitor *m;
-	struct wlr_ext_workspace_handle_v1 *handle;
-};
+void view(const Arg *arg);
+void toggleview(const Arg *arg);
 
-/* global */
-
-static struct wlr_ext_workspace_manager_v1 *ext_workspace_manager;
-static struct wl_list ext_workspaces; 
+/* Global state */
+struct wlr_ext_workspace_manager_v1 *ext_workspace_manager;
+struct wl_list ext_workspaces;
 static struct wl_listener ext_commit_listener;
 static struct wl_listener ext_destroy_listener;
 
 /* helpers */
-
 
 static int
 get_tag_status(uint32_t tag, Monitor *m)
@@ -90,7 +96,7 @@ ext_workspace_create(uint32_t tag, Monitor *m)
 
 /* monitor integration */
 
-static void
+void
 ext_workspace_createmon(Monitor *m)
 {
 	uint32_t i;
@@ -104,7 +110,7 @@ ext_workspace_createmon(Monitor *m)
 		ext_workspace_create(i, m);
 }
 
-static void
+void
 ext_workspace_cleanupmon(Monitor *m)
 {
 	struct ext_workspace *ws, *tmp;
@@ -120,7 +126,7 @@ ext_workspace_cleanupmon(Monitor *m)
 
 /* status */
 
-static void
+void
 ext_workspace_printstatus(Monitor *m)
 {
 	struct ext_workspace *ws;
@@ -194,7 +200,7 @@ handle_ext_destroy(struct wl_listener *listener, void *data)
 	wl_list_remove(&ext_destroy_listener.link);
 }
 
-static void
+void
 workspaces_init(void)
 {
 	ext_workspace_manager = wlr_ext_workspace_manager_v1_create(dpy, 1);
