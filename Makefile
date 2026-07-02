@@ -17,6 +17,10 @@ ifeq ($(origin CC),default)
     endif
   else
     CC = tcc
+    ifneq ($(shell $(CC) -std=c23 -x c /dev/null -o /dev/null 2>/dev/null; echo $$?),0)
+      $(warning "tcc -std=c23 unsupported, falling back to clang")
+      CC = $(shell which clang 2>/dev/null || which gcc)
+    endif
   endif
 endif
 
@@ -33,7 +37,7 @@ PKGS    = wayland-server xkbcommon libinput $(LUA_PKG) $(XLIBS)
 CFLAGS   = `$(PKG_CONFIG) --cflags $(PKGS) wlroots-0.20` \
 	-I. -Iinclude -Isrc -Iparser -Iprotocols \
 	-DWLR_USE_UNSTABLE -D_POSIX_C_SOURCE=200809L -DVERSION=\"$(VERSION)\" \
-	$(XWAYLAND) -g -Wall -Wextra -Wno-unused-parameter -O2 -std=c11
+	$(XWAYLAND) -g -Wall -Wextra -Wno-unused-parameter -O2 -std=c23
 LDLIBS   = `$(PKG_CONFIG) --libs $(PKGS) wlroots-0.20` -lm $(LIBS)
 
 SMSG_CFLAGS = `$(PKG_CONFIG) --cflags wayland-client` -Wall -Wextra -Wno-unused-parameter
@@ -51,6 +55,7 @@ release: CC = clang
 release: CFLAGS += -Werror -Wpedantic -Wmissing-prototypes -Wstrict-prototypes \
 	-Wold-style-definition -Wmissing-declarations -Wimplicit-fallthrough \
 	-Wno-gnu-zero-variadic-macro-arguments \
+	-Wno-c23-extensions \
 	-march=native
 release: peachwm peachmsg/peachmsg
 
@@ -71,6 +76,7 @@ debug: CFLAGS += -Werror -Weverything \
 	-Wno-format-nonliteral -Wno-float-conversion \
 	-Wno-tentative-definition-compat -Wno-missing-variable-declarations \
 	-Wno-gnu-zero-variadic-macro-arguments \
+	-Wno-c23-extensions \
 	-g3 -fno-omit-frame-pointer -fsanitize=address,undefined,leak \
 	-fsanitize-trap=all
 debug: LDLIBS += -fsanitize=address,undefined,leak
