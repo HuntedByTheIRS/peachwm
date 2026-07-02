@@ -1,13 +1,7 @@
 #pragma once
 #include "peachwm-ipc-unstable-v2-protocol.h"
 #include "monitor.h"
-
-/* macros needed by IPC */
-#ifndef TAGCOUNT
-#define TAGCOUNT 9
-#endif
-#define LENGTH(X) (sizeof X / sizeof X[0])
-#define TAGMASK ((1u << TAGCOUNT) - 1)
+#include "common.h"
 
 /* Forward declarations from peachwm.c */
 

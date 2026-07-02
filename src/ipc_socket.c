@@ -29,17 +29,7 @@
 #include "ipc.h"
 #include "ipc_socket.h"
 #include "util.h"
-
-/* ------------------------------------------------------------------ */
-/* Types from peachwm.c needed by command handlers                     */
-/* ------------------------------------------------------------------ */
-
-typedef union {
-	int i;
-	uint32_t ui;
-	float f;
-	const void *v;
-} Arg;
+#include "common.h"
 
 /* ------------------------------------------------------------------ */
 /* Functions from peachwm.c called by IPC command handler              */

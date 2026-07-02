@@ -3,6 +3,7 @@
 #include <wlr/types/wlr_scene.h>
 #include "client.h"
 #include "monitor.h"
+#include "common.h"
 
 /* Forward declarations from peachwm.c */
 extern struct wl_list clients;
@@ -28,20 +29,6 @@ enum {
 	LyrBlock,       /* 8 */
 	/* NUM_LAYERS = 9 */
 };
-
-/* The argument union used by keybind functions.
- * Both peachwm.c and the scratchpad module need to agree on this,
- * so it sits here rather than privately in each .c file. */
-typedef union {
-	int i;
-	uint32_t ui;
-	float f;
-	const void *v;
-} Arg;
-
-/* Scoped visibility helper — also defined (identically) in layout.c */
-int  visibleon(Client *c, Monitor *m);
-#define VISIBLEON(C, M) visibleon((C), (M))
 
 /* ----------- Extracted scratchpad functions ----------- */
 

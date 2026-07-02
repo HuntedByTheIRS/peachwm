@@ -15,17 +15,6 @@
 #include "scratchpad.h"
 
 /* ------------------------------------------------------------------ */
-/*  Visibility helper — duplicated from layout.c / peachwm.c           */
-/* ------------------------------------------------------------------ */
-
-int visibleon(Client *c, Monitor *m) {
-	return m && c->mon == m
-		? (c->isscratchpad ? m->scratchpad_visible
-		                   : (int)(c->tags & m->tagset[m->seltags]))
-		: 0;
-}
-
-/* ------------------------------------------------------------------ */
 /*  Extern functions from peachwm.c / layout.c / ipc client           */
 /* ------------------------------------------------------------------ */
 

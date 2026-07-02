@@ -14,17 +14,7 @@
 #include "ipc.h"
 #include "monitor.h"
 #include "util.h"
-
-#define LENGTH(X) (sizeof X / sizeof X[0])
-#define TAGMASK ((1u << TAGCOUNT) - 1)
-
-/* Forward declarations from peachwm.c */
-typedef union {
-	int i;
-	uint32_t ui;
-	float f;
-	const void *v;
-} Arg;
+#include "common.h"
 
 void view(const Arg *arg);
 void toggleview(const Arg *arg);

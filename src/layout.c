@@ -8,19 +8,7 @@
 #include "util.h"
 #include "layout.h"
 #include "parser/parser.h"
-
-/* macros (duplicated from peachwm.c) */
-#define MAX(A, B)     ((A) > (B) ? (A) : (B))
-#define LENGTH(X)     (sizeof X / sizeof X[0])
-#define TAGMASK       ((1u << TAGCOUNT) - 1)
-
-static inline int visibleon(Client *c, Monitor *m) {
-	return m && c->mon == m
-		? (c->isscratchpad ? m->scratchpad_visible
-		                   : (int)(c->tags & m->tagset[m->seltags]))
-		: 0;
-}
-#define VISIBLEON(C, M) visibleon((C), (M))
+#include "common.h"
 
 /* globals from peachwm.c */
 extern struct wl_list clients;
