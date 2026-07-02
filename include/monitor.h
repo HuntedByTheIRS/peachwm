@@ -1,5 +1,4 @@
-#ifndef PEACHWM_MONITOR_H
-#define PEACHWM_MONITOR_H
+#pragma once
 
 #include <wlr/types/wlr_output.h>
 #include <wlr/types/wlr_scene.h>
@@ -55,4 +54,3 @@ struct Monitor {
 	struct Client *scratchpad_current;      /* currently visible scratchpad client */
 };
 
-#endif /* PEACHWM_MONITOR_H */

@@ -1,5 +1,4 @@
-#ifndef PEACHWM_EXT_WORKSPACE_H
-#define PEACHWM_EXT_WORKSPACE_H
+#pragma once
 
 #include "monitor.h"
 
@@ -20,4 +19,3 @@ void ext_workspace_cleanupmon(Monitor *m);
 void ext_workspace_printstatus(Monitor *m);
 void workspaces_init(void);
 
-#endif /* PEACHWM_EXT_WORKSPACE_H */

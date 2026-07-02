@@ -564,7 +564,7 @@ static void arrangelayers(Monitor *m) {
 static void dispatch_action(const char *action,
                             const char (*args)[CFG_MAX_STRLEN], int nargs);
 
-static void axisnotify(struct wl_listener *listener, void *data) {
+static void axisnotify(struct wl_listener *listener, [[maybe_unused]] void *data) {
   /* This event is forwarded by the cursor when a pointer emits an axis event,
    * for example when you move the scroll wheel. */
   struct wlr_pointer_axis_event *event = data;
@@ -591,7 +591,7 @@ static void axisnotify(struct wl_listener *listener, void *data) {
                                event->source, event->relative_direction);
 }
 
-static void buttonpress(struct wl_listener *listener, void *data) {
+static void buttonpress(struct wl_listener *listener, [[maybe_unused]] void *data) {
   struct wlr_pointer_button_event *event = data;
   struct wlr_keyboard *keyboard;
   uint32_t mods;
@@ -935,7 +935,7 @@ static void createdecoration(struct wl_listener *listener, void *data) {
   requestdecorationmode(&c->set_decoration_mode, deco);
 }
 
-static void createidleinhibitor(struct wl_listener *listener, void *data) {
+static void createidleinhibitor(struct wl_listener *listener, [[maybe_unused]] void *data) {
   struct wlr_idle_inhibitor_v1 *idle_inhibitor = data;
   LISTEN_STATIC(&idle_inhibitor->events.destroy, destroyidleinhibitor);
 
@@ -1285,7 +1285,7 @@ static void cursorwarptohint(void) {
   double sx = active_constraint->current.cursor_hint.x;
   double sy = active_constraint->current.cursor_hint.y;
 
-  toplevel_from_wlr_surface(active_constraint->surface, &c, nullptr);
+  (void)toplevel_from_wlr_surface(active_constraint->surface, &c, nullptr);
   if (c && active_constraint->current.cursor_hint.enabled) {
     wlr_cursor_warp(cursor, nullptr, sx + c->geom.x + c->bw,
                     sy + c->geom.y + c->bw);
@@ -1348,7 +1348,7 @@ destroy:
   free(lock);
 }
 
-static void destroylocksurface(struct wl_listener *listener, void *data) {
+static void destroylocksurface(struct wl_listener *listener, [[maybe_unused]] void *data) {
   Monitor *m = wl_container_of(listener, m, destroy_lock_surface);
   struct wlr_session_lock_surface_v1 *surface, *lock_surface = m->lock_surface;
 
@@ -2217,7 +2217,7 @@ static void motionnotify(uint32_t time, struct wlr_input_device *device, double 
 
     if (active_constraint && cursor_mode != CurResize &&
         cursor_mode != CurMove) {
-      toplevel_from_wlr_surface(active_constraint->surface, &c, nullptr);
+      (void)toplevel_from_wlr_surface(active_constraint->surface, &c, nullptr);
       if (c &&
           active_constraint->surface == seat->pointer_state.focused_surface) {
         sx = cursor->x - c->geom.x - c->bw;
@@ -3632,7 +3632,7 @@ static void updatetitle(struct wl_listener *listener, void *data) {
 static void urgent(struct wl_listener *listener, void *data) {
   struct wlr_xdg_activation_v1_request_activate_event *event = data;
   Client *c = nullptr;
-  toplevel_from_wlr_surface(event->surface, &c, nullptr);
+  (void)toplevel_from_wlr_surface(event->surface, &c, nullptr);
   if (!c || c == focustop(selmon))
     return;
 

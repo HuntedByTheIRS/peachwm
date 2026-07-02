@@ -1,5 +1,4 @@
-#ifndef PEACHWM_CLIENT_H
-#define PEACHWM_CLIENT_H
+#pragma once
 
 #include <wayland-server-core.h>
 #include <wlr/util/box.h>
@@ -77,21 +76,21 @@ typedef struct {
 } LayerSurface;
 
 /* Function declarations */
-int client_is_x11(Client *c);
+[[nodiscard]] int client_is_x11(Client *c);
 struct wlr_surface *client_surface(Client *c);
-int toplevel_from_wlr_surface(struct wlr_surface *s, Client **pc, LayerSurface **pl);
+[[nodiscard]] int toplevel_from_wlr_surface(struct wlr_surface *s, Client **pc, LayerSurface **pl);
 void client_activate_surface(struct wlr_surface *s, int activated);
 uint32_t client_set_bounds(Client *c, int32_t width, int32_t height);
-const char *client_get_appid(Client *c);
+[[nodiscard]] const char *client_get_appid(Client *c);
 void client_get_clip(Client *c, struct wlr_box *clip);
 void client_get_geometry(Client *c, struct wlr_box *geom);
-Client *client_get_parent(Client *c);
-int client_has_children(Client *c);
-const char *client_get_title(Client *c);
-int client_is_float_type(Client *c);
-int client_is_rendered_on_mon(Client *c, Monitor *m);
-int client_is_stopped(Client *c);
-int client_is_unmanaged(Client *c);
+[[nodiscard]] Client *client_get_parent(Client *c);
+[[nodiscard]] int client_has_children(Client *c);
+[[nodiscard]] const char *client_get_title(Client *c);
+[[nodiscard]] int client_is_float_type(Client *c);
+[[nodiscard]] int client_is_rendered_on_mon(Client *c, Monitor *m);
+[[nodiscard]] int client_is_stopped(Client *c);
+[[nodiscard]] int client_is_unmanaged(Client *c);
 void client_notify_enter(struct wlr_surface *s, struct wlr_keyboard *kb);
 void client_send_close(Client *c);
 void client_set_border_color(Client *c, const float color[static 4]);
@@ -100,7 +99,6 @@ void client_set_scale(struct wlr_surface *s, float scale);
 uint32_t client_set_size(Client *c, uint32_t width, uint32_t height);
 void client_set_tiled(Client *c, uint32_t edges);
 void client_set_suspended(Client *c, int suspended);
-int client_wants_focus(Client *c);
-int client_wants_fullscreen(Client *c);
+[[nodiscard]] int client_wants_focus(Client *c);
+[[nodiscard]] int client_wants_fullscreen(Client *c);
 
-#endif /* PEACHWM_CLIENT_H */

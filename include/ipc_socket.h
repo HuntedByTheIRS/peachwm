@@ -20,8 +20,7 @@
  *   0x80000002 = mode        0x80000003 = window
  */
 
-#ifndef PEACHWM_IPC_SOCKET_H
-#define PEACHWM_IPC_SOCKET_H
+#pragma once
 
 #include <stddef.h>
 #include <stdint.h>
@@ -88,4 +87,3 @@ void ipc_socket_send_workspace_event(const char *change);
 void ipc_socket_send_window_event(const char *change);
 void ipc_socket_send_output_event(void);
 
-#endif /* PEACHWM_IPC_SOCKET_H */

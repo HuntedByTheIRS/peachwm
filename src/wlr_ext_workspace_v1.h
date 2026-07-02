@@ -6,8 +6,7 @@
 #error "Add -DWLR_USE_UNSTABLE to enable unstable wlroots features"
 #endif
 
-#ifndef WLR_TYPES_WLR_EXT_WORKSPACE_V1_H
-#define WLR_TYPES_WLR_EXT_WORKSPACE_V1_H
+#pragma once
 
 #include <wayland-protocols/ext-workspace-v1-enum.h>
 #include <wayland-server-core.h>
@@ -147,4 +146,4 @@ void wlr_ext_workspace_handle_v1_set_urgent(
 void wlr_ext_workspace_handle_v1_set_hidden(
 	struct wlr_ext_workspace_handle_v1 *workspace, bool enabled);
 
-#endif
+

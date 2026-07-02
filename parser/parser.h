@@ -1,5 +1,4 @@
-#ifndef PEACHWM_PARSER_H
-#define PEACHWM_PARSER_H
+#pragma once
 
 #include <stdint.h>
 #include <wayland-server-core.h>
@@ -159,4 +158,3 @@ WatchState *config_watch_start(
 
 void config_watch_stop(WatchState *ws);
 
-#endif

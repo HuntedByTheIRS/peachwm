@@ -1,5 +1,4 @@
-#ifndef PEACHWM_LAYOUT_H
-#define PEACHWM_LAYOUT_H
+#pragma once
 
 #include "monitor.h"
 #include "client.h"
@@ -25,11 +24,11 @@ void master(Monitor *m);
 void monocle(Monitor *m);
 
 /* helpers used across modules */
-int current_tag_idx(Monitor *m);
-const Layout *curlayout(Monitor *m);
+[[nodiscard]] int current_tag_idx(Monitor *m);
+[[nodiscard]] const Layout *curlayout(Monitor *m);
 
 /* dwindle tree helpers (exposed for swapdir) */
-DwindleNode *dwindle_find_leaf(DwindleNode *n, Client *c);
+[[nodiscard]] DwindleNode *dwindle_find_leaf(DwindleNode *n, Client *c);
 void dwindle_recalc(DwindleNode *n, int gap);
 
 /* lifecycle helpers (called from peachwm.c unmap/cleanup) */
@@ -40,4 +39,3 @@ void master_remove_client(Client *c);
 /* tile drag swap (called from buttonpress handler) */
 void swaptiled(Client *a, Client *b);
 
-#endif /* PEACHWM_LAYOUT_H */
