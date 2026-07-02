@@ -2127,6 +2127,29 @@ static void mapnotify(struct wl_listener *listener, void *data) {
     }
   }
 
+  /* Create drop shadow */
+  if (cfg.effects.windows.shadows.shadows && !client_is_unmanaged(c)) {
+    float sc[4];
+    parse_color_hex(cfg.effects.windows.shadows.shadow_color, sc);
+    sc[3] *= cfg.effects.windows.shadows.shadow_opacity;
+    sc[0] *= sc[3]; sc[1] *= sc[3]; sc[2] *= sc[3];
+    int sr = c->corner_radius;
+    int sw = MAX(1, (int)(c->geom.width - 2 * c->bw) +
+                       2 * cfg.effects.windows.shadows.shadow_expand);
+    int sh = MAX(1, (int)(c->geom.height - 2 * c->bw) +
+                       2 * cfg.effects.windows.shadows.shadow_expand);
+    c->shadow = wlr_scene_shadow_create(c->scene, sw, sh, sr,
+        (float)cfg.effects.windows.shadows.shadow_radius, sc);
+    if (c->shadow) {
+      wlr_scene_node_set_position(&c->shadow->node,
+          cfg.effects.windows.shadows.shadow_offset_x
+              - cfg.effects.windows.shadows.shadow_expand,
+          cfg.effects.windows.shadows.shadow_offset_y
+              - cfg.effects.windows.shadows.shadow_expand);
+      wlr_scene_node_place_below(&c->shadow->node, &c->border[0]->node);
+    }
+  }
+
   c->scene_surface =
       c->type == XDGShell
           ? wlr_scene_xdg_surface_create(c->scene, c->surface.xdg)
@@ -2591,6 +2614,45 @@ void resize(Client *c, struct wlr_box geo, int interact) {
   wlr_scene_node_set_position(&c->border[3]->node, c->geom.width - c->bw,
                               c->bw);
 
+  /* Update drop shadow */
+  if (c->shadow) {
+    bool shadow_visible = cfg.effects.windows.shadows.shadows
+        && (cfg.effects.windows.shadows.fullscreen_shadows || !c->isfullscreen)
+        && (!cfg.effects.windows.shadows.only_floating || c->isfloating);
+    if (!cfg.effects.windows.shadows.nogaps_shadows && !c->mon->gaps)
+      shadow_visible = false;
+    wlr_scene_node_set_enabled(&c->shadow->node, shadow_visible);
+
+    if (shadow_visible) {
+      int sw = MAX(1, (int)(c->geom.width - 2 * (int)c->bw) + 2 * cfg.effects.windows.shadows.shadow_expand);
+      int sh = MAX(1, (int)(c->geom.height - 2 * (int)c->bw) + 2 * cfg.effects.windows.shadows.shadow_expand);
+      wlr_scene_shadow_set_size(c->shadow, sw, sh);
+      wlr_scene_node_set_position(&c->shadow->node,
+          cfg.effects.windows.shadows.shadow_offset_x - cfg.effects.windows.shadows.shadow_expand + (int)c->bw,
+          cfg.effects.windows.shadows.shadow_offset_y - cfg.effects.windows.shadows.shadow_expand + (int)c->bw);
+
+      int effective_r_for_shadow = c->corner_radius > 0 ? c->corner_radius : 0;
+      wlr_scene_shadow_set_corner_radius(c->shadow, effective_r_for_shadow);
+      wlr_scene_shadow_set_blur_sigma(c->shadow,
+          (float)cfg.effects.windows.shadows.shadow_radius);
+
+      float sc[4];
+      parse_color_hex(cfg.effects.windows.shadows.shadow_color, sc);
+      sc[3] *= cfg.effects.windows.shadows.shadow_opacity;
+      sc[0] *= sc[3]; sc[1] *= sc[3]; sc[2] *= sc[3];
+      wlr_scene_shadow_set_color(c->shadow, sc);
+
+      if (cfg.effects.windows.shadows.shadow_clip) {
+        int cr_val = effective_r_for_shadow;
+        struct clipped_region cr = {
+          .area = {(int)c->bw, (int)c->bw, (int)(c->geom.width - 2 * (int)c->bw), (int)(c->geom.height - 2 * (int)c->bw)},
+          .corners = corner_radii_new(cr_val, cr_val, cr_val, cr_val),
+        };
+        wlr_scene_shadow_set_clipped_region(c->shadow, cr);
+      }
+    }
+  }
+
   if (c->corner_radius > 0 && !c->isfullscreen) {
     int r = c->corner_radius;
     wlr_scene_rect_set_corner_radii(c->border[0], corner_radii_top(r));
@@ -2991,6 +3053,36 @@ reapply_client_appearance(void)
 			int radius = r;
 			wlr_scene_node_for_each_buffer(&c->scene_surface->node,
 			    set_buffer_corner_radius, &radius);
+			/* Shadow re-apply on config reload */
+			if (cfg.effects.windows.shadows.shadows) {
+				if (!c->shadow) {
+					float sc[4];
+					parse_color_hex(cfg.effects.windows.shadows.shadow_color, sc);
+					sc[3] *= cfg.effects.windows.shadows.shadow_opacity;
+					sc[0] *= sc[3]; sc[1] *= sc[3]; sc[2] *= sc[3];
+					int sr = c->corner_radius;
+					int sw = MAX(1, (int)(c->geom.width - 2 * (int)c->bw)
+					    + 2 * cfg.effects.windows.shadows.shadow_expand);
+					int sh = MAX(1, (int)(c->geom.height - 2 * (int)c->bw)
+					    + 2 * cfg.effects.windows.shadows.shadow_expand);
+					c->shadow = wlr_scene_shadow_create(c->scene, sw, sh, sr,
+					    (float)cfg.effects.windows.shadows.shadow_radius, sc);
+					if (c->shadow) {
+						wlr_scene_node_set_position(&c->shadow->node,
+						    cfg.effects.windows.shadows.shadow_offset_x
+						        - cfg.effects.windows.shadows.shadow_expand,
+						    cfg.effects.windows.shadows.shadow_offset_y
+						        - cfg.effects.windows.shadows.shadow_expand);
+						wlr_scene_node_place_below(&c->shadow->node,
+						    &c->border[0]->node);
+					}
+				}
+			} else {
+				if (c->shadow) {
+					wlr_scene_node_destroy(&c->shadow->node);
+					c->shadow = NULL;
+				}
+			}
 		}
 		if (!client_is_unmanaged(c)) {
 			float *color = c->isurgent ? cfg.appearance.urgent_color
