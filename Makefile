@@ -66,7 +66,7 @@ debug: CC = clang
 debug: CFLAGS += -Werror -Weverything \
 	-Wno-padded -Wno-unsafe-buffer-usage \
 	-Wno-c++-keyword -Wno-reserved-macro-identifier -Wno-reserved-identifier \
-	-Wno-pre-c11-compat -Wno-implicit-void-ptr-cast -Wno-switch-default \
+	-Wno-pre-c11-compat -Wno-pre-c23-compat -Wno-implicit-void-ptr-cast -Wno-switch-default \
 	-Wno-sign-conversion -Wno-used-but-marked-unused \
 	-Wno-cast-align -Wno-disabled-macro-expansion \
 	-Wno-double-promotion -Wno-bad-function-cast \
