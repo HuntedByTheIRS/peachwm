@@ -107,8 +107,24 @@ typedef struct {
 /* Effects */
 
 typedef struct {
-	bool         rounded;
-	char         rounding[CFG_MAX_STRLEN];
+	bool     shadows;
+	int      shadow_radius;
+	int      shadow_offset_x;
+	int      shadow_offset_y;
+	uint32_t shadow_color;
+	float    shadow_opacity;
+	int      shadow_expand;
+	bool     fullscreen_shadows;
+	bool     nogaps_shadows;
+	bool     maximized_shadows;
+	bool     only_floating;
+	bool     shadow_clip;
+} CfgEffectsWindowShadows;
+
+typedef struct {
+	bool                     rounded;
+	char                     rounding[CFG_MAX_STRLEN];
+	CfgEffectsWindowShadows  shadows;
 } CfgEffectsWindows;
 
 typedef struct {
@@ -157,6 +173,8 @@ int config_load(const char *path, Config *cfg);
 char *config_get_path(char *buf, size_t bufsz);
 
 void config_autostart_run(const Config *cfg);
+
+void parse_color_hex(uint32_t hex, float out[4]);
 
 typedef void (*config_reload_cb)(const Config *cfg, void *userdata);
 

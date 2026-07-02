@@ -97,7 +97,7 @@ lua_get_bool(lua_State *L, const char *key, bool def)
 	return val;
 }
 
-static void
+void
 parse_color_hex(uint32_t hex, float out[4])
 {
 	out[0] = ((hex >> 24) & 0xFF) / 255.0f;
@@ -619,6 +619,39 @@ parse_autostart(lua_State *L, Config *cfg)
 }
 
 static void
+parse_shadows(lua_State *L, CfgEffectsWindowShadows *s)
+{
+	/* Sub-table defaults are zero-initialized by memset in config_load */
+	lua_getfield(L, -1, "shadows");
+	if (!lua_istable(L, -1)) {
+		lua_pop(L, 1);
+		return;
+	}
+
+	s->shadows = lua_get_bool(L, "shadows", false);
+	s->shadow_radius = lua_get_int(L, "shadow_radius", 0);
+	if (s->shadow_radius < 0) s->shadow_radius = 0;
+	s->shadow_offset_x = lua_get_int(L, "shadow_offset_x", 0);
+	s->shadow_offset_y = lua_get_int(L, "shadow_offset_y", 0);
+	s->shadow_expand = lua_get_int(L, "shadow_expand", 0);
+	if (s->shadow_expand < 0) s->shadow_expand = 0;
+	s->shadow_color = (uint32_t)lua_get_int(L, "shadow_color", 0);
+
+	double op = lua_get_double(L, "shadow_opacity", 0.0);
+	if (op < 0.0) op = 0.0;
+	if (op > 1.0) op = 1.0;
+	s->shadow_opacity = (float)op;
+
+	s->fullscreen_shadows = lua_get_bool(L, "fullscreen_shadows", false);
+	s->nogaps_shadows = lua_get_bool(L, "nogaps_shadows", false);
+	s->maximized_shadows = lua_get_bool(L, "maximized_shadows", false);
+	s->only_floating = lua_get_bool(L, "only_floating", false);
+	s->shadow_clip = lua_get_bool(L, "shadow_clip", false);
+
+	lua_pop(L, 1); /* pop shadows table */
+}
+
+static void
 parse_effects(lua_State *L, CfgEffects *e)
 {
 	/* Defaults */
@@ -645,6 +678,8 @@ parse_effects(lua_State *L, CfgEffects *e)
 		strncpy(e->windows.rounding, scratch, CFG_MAX_STRLEN - 1);
 	else
 		strcpy(e->windows.rounding, "off");
+
+	parse_shadows(L, &e->windows.shadows);
 
 	lua_pop(L, 2); /* pop windows + effects */
 }
