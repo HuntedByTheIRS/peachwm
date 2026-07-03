@@ -296,44 +296,9 @@ parse_rules(lua_State *L, Config *cfg)
 		memset(r, 0, sizeof(*r));
 		lua_get_string(L, "app_id", r->app_id, sizeof(r->app_id));
 		lua_get_string(L, "title",  r->title,  sizeof(r->title));
-		r->fullscreen    = lua_get_bool(L, "fullscreen",     false);
-		r->can_float     = lua_get_bool(L, "can_float",      true);
-		r->can_fullscreen= lua_get_bool(L, "can_fullscreen", true);
-
-		/* tags: "any" → 0 (all tags), number → as-is, missing → 0 */
-		lua_getfield(L, -1, "tags");
-		if (lua_isstring(L, -1) && !strcmp(lua_tostring(L, -1), "any"))
-			r->tags = 0;
-		else
-			r->tags = (uint32_t)(lua_isnumber(L, -1)
-				? (int)lua_tointeger(L, -1) : 0);
-		lua_pop(L, 1);
-
+		r->tags     = (uint32_t)lua_get_int(L, "tags",     0);
 		r->floating = lua_get_bool(L, "floating", false);
-
-		/* monitor: "default" → -1 (current), number → as-is, missing → -1 */
-		lua_getfield(L, -1, "monitor");
-		if (lua_isstring(L, -1) && !strcmp(lua_tostring(L, -1), "default"))
-			r->monitor = -1;
-		else
-			r->monitor = lua_isnumber(L, -1)
-				? (int)lua_tointeger(L, -1) : -1;
-		lua_pop(L, 1);
-
-		/* Default: all effects follow global (true = no override) */
-		memset(&r->apply_effects, 1, sizeof(r->apply_effects));
-		lua_getfield(L, -1, "apply_effects");
-		if (lua_istable(L, -1)) {
-			r->apply_effects.rounding     = lua_get_bool(L, "rounding",     true);
-			r->apply_effects.shadows      = lua_get_bool(L, "shadows",      true);
-			r->apply_effects.transparency = lua_get_bool(L, "transparency", true);
-			r->apply_effects.blur         = lua_get_bool(L, "blur",         true);
-			r->apply_effects.gaps         = lua_get_bool(L, "gaps",         true);
-			r->apply_effects.smartgaps    = lua_get_bool(L, "smartgaps",    true);
-			r->apply_effects.border       = lua_get_bool(L, "border",       true);
-			r->apply_effects.sloppy_focus = lua_get_bool(L, "sloppy_focus", true);
-		}
-		lua_pop(L, 1);
+		r->monitor  = lua_get_int(L, "monitor", -1);
 
 		lua_pop(L, 1);
 	}
