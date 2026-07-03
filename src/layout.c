@@ -1,32 +1,23 @@
-/*
- * Layout algorithms extracted from peachwm.c
- * Dwindle, Master/Stack, Monocle, and associated utilities.
- */
 #include <stddef.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "util.h"
 #include "layout.h"
 #include "parser/parser.h"
 #include "common.h"
 
-/* globals from peachwm.c */
 extern struct wl_list clients;
 extern struct wl_list fstack;
 extern struct wl_list mons;
 extern Monitor *selmon;
 extern Config cfg;
 
-/* functions from peachwm.c */
-void       resize(Client *c, struct wlr_box geo, int interact);
-Client    *focustop(Monitor *m);
-void       focusclient(Client *c, int lift);
-void       printstatus(void);
-void       client_set_suspended(Client *c, int suspended);
-
-/* ================================================================
- * layout table
- * ================================================================ */
+void resize(Client *c, struct wlr_box geo, int interact);
+Client *focustop(Monitor *m);
+void focusclient(Client *c, int lift);
+void printstatus(void);
+void client_set_suspended(Client *c, int suspended);
 
 const Layout layouts[] = {
 	{"><>", nullptr},
@@ -36,11 +27,6 @@ const Layout layouts[] = {
 };
 const unsigned int layout_count = LENGTH(layouts);
 
-/* ================================================================
- * helpers
- * ================================================================ */
-
-/* Allocate and default-initialize monitor cold state on first use. */
 void
 ensure_cold(Monitor *m)
 {
@@ -55,11 +41,6 @@ ensure_cold(Monitor *m)
 	m->cold->nmaster = 1;
 }
 
-/*
- * Returns the 0-based index of the lowest set tag bit for monitor m.
- * For single-tag views this is the exact tag. For multi-tag views it
- * picks the lowest bit.
- */
 int
 current_tag_idx(Monitor *m)
 {
@@ -74,7 +55,6 @@ current_tag_idx(Monitor *m)
 	return idx < TAGCOUNT ? idx : 0;
 }
 
-/* Helper: get current layout for the active tag on monitor m */
 const Layout *
 curlayout(Monitor *m)
 {
@@ -83,165 +63,190 @@ curlayout(Monitor *m)
 	return m->cold->lt[ti][m->cold->sellt[ti]];
 }
 
-/* ================================================================
- * dwindle tree helpers
- * ================================================================ */
-
-static DwindleNode *
-dwindle_new_node(void)
+static int
+dwindle_new_node(DwindleTree *tree)
 {
-	DwindleNode *n = ecalloc(1, sizeof(*n));
-	n->split_ratio = 1.0f;
-	return n;
+	if (tree->node_count >= tree->node_cap) {
+		int new_cap = tree->node_cap ? tree->node_cap * 2 : 8;
+		if (tree->nodes) {
+			tree->nodes = realloc(tree->nodes,
+			                      new_cap * sizeof(DwindleNode));
+			memset(&tree->nodes[tree->node_cap], 0,
+			       (new_cap - tree->node_cap) * sizeof(DwindleNode));
+		} else {
+			tree->nodes = ecalloc(new_cap, sizeof(DwindleNode));
+		}
+		tree->node_cap = new_cap;
+	}
+	int idx = tree->node_count++;
+	tree->nodes[idx].children[0] = -1;
+	tree->nodes[idx].children[1] = -1;
+	tree->nodes[idx].parent = -1;
+	tree->nodes[idx].split_ratio = 1.0f;
+	return idx;
 }
 
 void
-dwindle_free_tree(DwindleNode *n)
+dwindle_free_tree(DwindleTree *tree)
 {
-	if (!n)
-		return;
-	dwindle_free_tree(n->children[0]);
-	dwindle_free_tree(n->children[1]);
-	free(n);
+	free(tree->nodes);
+	tree->nodes = nullptr;
+	tree->node_count = 0;
+	tree->node_cap = 0;
 }
 
-DwindleNode *
-dwindle_find_leaf(DwindleNode *n, Client *c)
+int
+dwindle_find_leaf(const DwindleTree *tree, Client *c)
 {
-	if (!n)
-		return nullptr;
-	if (!n->is_node)
-		return n->client == c ? n : nullptr;
-	DwindleNode *r = dwindle_find_leaf(n->children[0], c);
-	return r ? r : dwindle_find_leaf(n->children[1], c);
+	for (int i = 0; i < tree->node_count; i++)
+		if (!tree->nodes[i].is_node && tree->nodes[i].client == c)
+			return i;
+	return -1;
 }
 
-static DwindleNode *
-dwindle_first_leaf(DwindleNode *n)
+static int
+dwindle_first_leaf(const DwindleTree *tree)
 {
-	if (!n)
-		return nullptr;
-	while (n->is_node)
-		n = n->children[0];
-	return n;
+	for (int i = 0; i < tree->node_count; i++)
+		if (!tree->nodes[i].is_node)
+			return i;
+	return -1;
 }
 
-/*
- * Recursively distribute geometry downward from node n.
- * gap is inner gap pixels between the two halves.
- */
 void
-dwindle_recalc(DwindleNode *n, int gap)
+dwindle_recalc(DwindleTree *tree, int gap)
 {
-	if (!n)
-		return;
+	for (int i = 0; i < tree->node_count; i++) {
+		DwindleNode *n = &tree->nodes[i];
+		if (!n->is_node)
+			continue;
+		if (n->children[0] < 0 || n->children[1] < 0)
+			continue;
 
-	if (!n->is_node) {
-		if (n->client && !n->client->isfullscreen)
+		n->split_top = (n->box.height > n->box.width);
+
+		if (!n->split_top) {
+			int w1 = MAX(1, (int)(n->box.width / 2.0f * n->split_ratio) - gap / 2);
+			tree->nodes[n->children[0]].box =
+				(struct wlr_box){n->box.x, n->box.y, w1,
+				                 n->box.height};
+			tree->nodes[n->children[1]].box =
+				(struct wlr_box){n->box.x + w1 + gap, n->box.y,
+				                 MAX(1, n->box.width - w1 - gap),
+				                 n->box.height};
+		} else {
+			int h1 = MAX(1, (int)(n->box.height / 2.0f * n->split_ratio) - gap / 2);
+			tree->nodes[n->children[0]].box =
+				(struct wlr_box){n->box.x, n->box.y, n->box.width,
+				                 h1};
+			tree->nodes[n->children[1]].box =
+				(struct wlr_box){n->box.x, n->box.y + h1 + gap,
+				                 n->box.width,
+				                 MAX(1, n->box.height - h1 - gap)};
+		}
+	}
+
+	for (int i = 0; i < tree->node_count; i++) {
+		DwindleNode *n = &tree->nodes[i];
+		if (!n->is_node && n->client && !n->client->isfullscreen)
 			resize(n->client, n->box, 0);
-		return;
 	}
-
-	/* Wider than tall -> split left/right; taller -> split top/bottom. */
-	n->split_top = (n->box.height > n->box.width);
-
-	if (!n->split_top) {
-		int w1 = MAX(1, (int)(n->box.width / 2.0f * n->split_ratio) - gap / 2);
-		n->children[0]->box =
-			(struct wlr_box){n->box.x, n->box.y, w1, n->box.height};
-		n->children[1]->box =
-			(struct wlr_box){n->box.x + w1 + gap, n->box.y,
-			                 MAX(1, n->box.width - w1 - gap), n->box.height};
-	} else {
-		int h1 = MAX(1, (int)(n->box.height / 2.0f * n->split_ratio) - gap / 2);
-		n->children[0]->box =
-			(struct wlr_box){n->box.x, n->box.y, n->box.width, h1};
-		n->children[1]->box =
-			(struct wlr_box){n->box.x, n->box.y + h1 + gap, n->box.width,
-			                 MAX(1, n->box.height - h1 - gap)};
-	}
-
-	dwindle_recalc(n->children[0], gap);
-	dwindle_recalc(n->children[1], gap);
 }
 
-/*
- * Insert new_c into the tree, bisecting the focused client's node.
- * It falls back to the first leaf if focused is NULL or not in the tree.
- */
 static void
-dwindle_insert(DwindleNode **root, Client *new_c, Client *focused)
+dwindle_insert(DwindleTree *tree, Client *new_c, Client *focused)
 {
-	DwindleNode *new_leaf = dwindle_new_node();
-	new_leaf->client = new_c;
-	new_leaf->is_node = 0;
+	int new_leaf_idx = dwindle_new_node(tree);
+	tree->nodes[new_leaf_idx].client = new_c;
+	tree->nodes[new_leaf_idx].is_node = 0;
 
-	if (!*root) {
-		*root = new_leaf;
+	if (tree->node_count == 1)
 		return;
-	}
 
-	DwindleNode *opening_on = focused ? dwindle_find_leaf(*root, focused) : nullptr;
-	if (!opening_on)
-		opening_on = dwindle_first_leaf(*root);
+	int leaf_idx = focused ? dwindle_find_leaf(tree, focused) : -1;
+	if (leaf_idx < 0)
+		leaf_idx = dwindle_first_leaf(tree);
 
-	DwindleNode *new_parent = dwindle_new_node();
-	new_parent->is_node = 1;
-	new_parent->box = opening_on->box;
-	new_parent->parent = opening_on->parent;
-	new_parent->split_top = (opening_on->box.height > opening_on->box.width);
-	new_parent->children[0] = opening_on;
-	new_parent->children[1] = new_leaf;
+	int new_parent_idx = dwindle_new_node(tree);
+	DwindleNode *parent = &tree->nodes[new_parent_idx];
+	DwindleNode *opening = &tree->nodes[leaf_idx];
 
-	opening_on->parent = new_parent;
-	new_leaf->parent = new_parent;
+	parent->is_node = 1;
+	parent->box = opening->box;
+	parent->split_top = (opening->box.height > opening->box.width);
+	parent->children[0] = leaf_idx;
+	parent->children[1] = new_leaf_idx;
 
-	if (new_parent->parent) {
-		if (new_parent->parent->children[0] == opening_on)
-			new_parent->parent->children[0] = new_parent;
+	int gp_idx = opening->parent;
+	parent->parent = gp_idx;
+	opening->parent = new_parent_idx;
+	tree->nodes[new_leaf_idx].parent = new_parent_idx;
+
+	if (gp_idx >= 0) {
+		DwindleNode *gp = &tree->nodes[gp_idx];
+		if (gp->children[0] == leaf_idx)
+			gp->children[0] = new_parent_idx;
 		else
-			new_parent->parent->children[1] = new_parent;
-	} else {
-		*root = new_parent;
+			gp->children[1] = new_parent_idx;
 	}
 }
 
-/*
- * Remove client c from the tree, promoting its sibling upward.
- */
 static void
-dwindle_remove(DwindleNode **root, Client *c)
+dwindle_remove(DwindleTree *tree, Client *c)
 {
-	DwindleNode *leaf = dwindle_find_leaf(*root, c);
-	if (!leaf)
+	int leaf_idx = dwindle_find_leaf(tree, c);
+	if (leaf_idx < 0)
 		return;
 
-	DwindleNode *parent = leaf->parent;
-	if (!parent) {
-		free(leaf);
-		*root = nullptr;
+	int parent_idx = tree->nodes[leaf_idx].parent;
+	if (parent_idx < 0) {
+		tree->node_count = 0;
 		return;
 	}
 
-	DwindleNode *sibling =
-		(parent->children[0] == leaf) ? parent->children[1] : parent->children[0];
-	DwindleNode *grandparent = parent->parent;
+	DwindleNode *parent = &tree->nodes[parent_idx];
+	int sibling_idx = (parent->children[0] == leaf_idx)
+		? parent->children[1]
+		: parent->children[0];
+	int gp_idx = parent->parent;
 
-	sibling->parent = grandparent;
-	if (grandparent) {
-		if (grandparent->children[0] == parent)
-			grandparent->children[0] = sibling;
-		else
-			grandparent->children[1] = sibling;
-	} else {
-		*root = sibling;
+	int old_n = tree->node_count;
+	int remap[512];
+	int ni = 0;
+
+	for (int i = 0; i < old_n; i++)
+		remap[i] = (i == leaf_idx || i == parent_idx) ? -1 : ni++;
+
+	int write = 0;
+	for (int read = 0; read < old_n; read++) {
+		if (remap[read] >= 0)
+			tree->nodes[write++] = tree->nodes[read];
+	}
+	tree->node_count = ni;
+
+	for (int i = 0; i < ni; i++) {
+		DwindleNode *n = &tree->nodes[i];
+		if (n->children[0] >= 0)
+			n->children[0] = remap[n->children[0]];
+		if (n->children[1] >= 0)
+			n->children[1] = remap[n->children[1]];
+		if (n->parent >= 0)
+			n->parent = remap[n->parent];
 	}
 
-	free(leaf);
-	free(parent);
+	int new_sib = remap[sibling_idx];
+	int new_gp = gp_idx >= 0 ? remap[gp_idx] : -1;
+
+	tree->nodes[new_sib].parent = new_gp;
+	if (new_gp >= 0) {
+		DwindleNode *gp = &tree->nodes[new_gp];
+		if (gp->children[0] < 0)
+			gp->children[0] = new_sib;
+		else if (gp->children[1] < 0)
+			gp->children[1] = new_sib;
+	}
 }
 
-/* Remove c from every monitor's per-tag tree.  Called from unmapnotify(). */
 void
 dwindle_remove_client(Client *c)
 {
@@ -249,12 +254,8 @@ dwindle_remove_client(Client *c)
 	if (!m || !m->cold)
 		return;
 	for (int i = 0; i < TAGCOUNT; i++)
-		dwindle_remove(&m->cold->dwindle_root[i], c);
+		dwindle_remove(&m->cold->dwindle_tree[i], c);
 }
-
-/* ================================================================
- * dwindle
- * ================================================================ */
 
 void
 dwindle(Monitor *m)
@@ -275,73 +276,61 @@ dwindle(Monitor *m)
 		: 0;
 
 	int ti = current_tag_idx(m);
-	DwindleNode **root = &m->cold->dwindle_root[ti];
+	DwindleTree *tree = &m->cold->dwindle_tree[ti];
 
-	/* prune leaves whose clients are no longer tiled here */
-	{
-		DwindleNode *stack[512];
+	if (tree->node_count > 0) {
 		Client *stale[512];
-		int sp = 0, sc = 0;
+		int sc = 0;
 
-		if (*root)
-			stack[sp++] = *root;
-
-		while (sp > 0) {
-			DwindleNode *nd = stack[--sp];
-			if (!nd->is_node) {
-				int found = 0;
-				wl_list_for_each(c, &clients, link) {
-					if (c == nd->client && VISIBLEON(c, m) && !c->isfloating) {
-						found = 1;
-						break;
-					}
+		for (int i = 0; i < tree->node_count; i++) {
+			DwindleNode *nd = &tree->nodes[i];
+			if (nd->is_node)
+				continue;
+			int found = 0;
+			wl_list_for_each(c, &clients, link) {
+				if (c == nd->client && VISIBLEON(c, m) && !c->isfloating) {
+					found = 1;
+					break;
 				}
-				if (!found && sc < 512)
-					stale[sc++] = nd->client;
-			} else {
-				if (nd->children[1])
-					stack[sp++] = nd->children[1];
-				if (nd->children[0])
-					stack[sp++] = nd->children[0];
 			}
+			if (!found && sc < 512)
+				stale[sc++] = nd->client;
 		}
 
 		for (int i = 0; i < sc; i++)
-			dwindle_remove(root, stale[i]);
+			dwindle_remove(tree, stale[i]);
 	}
 
-	/*
-	 * Insert any newly visible client, splitting the focused node.
-	 * Use m->cold->dwindle_focus[ti] so it actually splits what the user
-	 * was looking at when they spawned the window, rather than whatever
-	 * focustop() happens to return.
-	 */
 	Client *focused = m->cold->dwindle_focus[ti];
 
 	wl_list_for_each(c, &clients, link) {
 		if (!VISIBLEON(c, m) || c->isfloating || c->isfullscreen)
 			continue;
-		if (!dwindle_find_leaf(*root, c)) {
-			dwindle_insert(root, c, focused);
+		if (dwindle_find_leaf(tree, c) < 0) {
+			dwindle_insert(tree, c, focused);
 			focused = c;
 		}
 	}
 
-	/* assign root box and recurse */
-	if (*root) {
-		(*root)->box = (struct wlr_box){
-			m->w.x + e,
-			m->w.y + e,
-			MAX(1, m->w.width - 2 * e),
-			MAX(1, m->w.height - 2 * e),
-		};
-		dwindle_recalc(*root, e);
+	if (tree->node_count > 0) {
+		int root_idx = -1;
+		for (int i = 0; i < tree->node_count; i++) {
+			if (tree->nodes[i].parent < 0) {
+				root_idx = i;
+				break;
+			}
+		}
+		if (root_idx >= 0) {
+			tree->nodes[root_idx].box = (struct wlr_box){
+				m->w.x + e,
+				m->w.y + e,
+				MAX(1, m->w.width - 2 * e),
+				MAX(1, m->w.height - 2 * e),
+			};
+			dwindle_recalc(tree, e);
+		}
 	}
 }
-
-/* ================================================================
- * master / stack
- * ================================================================ */
 
 static void
 master_arrange(Monitor *m, int ti)
@@ -434,7 +423,6 @@ master(Monitor *m)
 	master_arrange(m, ti);
 }
 
-/* Clear master references to client c on all tags of its monitor. */
 void
 master_remove_client(Client *c)
 {
@@ -446,10 +434,6 @@ master_remove_client(Client *c)
 			m->cold->master_master[i] = nullptr;
 	}
 }
-
-/* ================================================================
- * monocle
- * ================================================================ */
 
 void
 monocle(Monitor *m)
@@ -471,8 +455,6 @@ monocle(Monitor *m)
 	int aw = MAX(1, m->w.width - 2 * e);
 	int ah = MAX(1, m->w.height - 2 * e);
 
-	/* Stack all windows at the same position and raise the focused one to
-	 * top. */
 	wl_list_for_each(c, &clients, link) {
 		if (!VISIBLEON(c, m) || c->isfloating || c->isfullscreen)
 			continue;
@@ -485,10 +467,6 @@ monocle(Monitor *m)
 	}
 }
 
-/* ================================================================
- * swaptiled  (tile-drag swap)
- * ================================================================ */
-
 void
 swaptiled(Client *a, Client *b)
 {
@@ -500,25 +478,34 @@ swaptiled(Client *a, Client *b)
 		if (!m->cold)
 			continue;
 		for (int i = 0; i < TAGCOUNT; i++) {
-			DwindleNode **root = &m->cold->dwindle_root[i];
-			if (!*root)
+			DwindleTree *tree = &m->cold->dwindle_tree[i];
+			if (!tree->nodes || tree->node_count == 0)
 				continue;
-			DwindleNode *la = dwindle_find_leaf(*root, a);
-			DwindleNode *lb = dwindle_find_leaf(*root, b);
-			if (!la || !lb)
+			int la = dwindle_find_leaf(tree, a);
+			int lb = dwindle_find_leaf(tree, b);
+			if (la < 0 || lb < 0)
 				continue;
-			la->client = b;
-			lb->client = a;
+			tree->nodes[la].client = b;
+			tree->nodes[lb].client = a;
 			int e = (m->gaps && cfg.appearance.gaps)
 				? (int)cfg.appearance.gaps
 				: 0;
-			(*root)->box = (struct wlr_box){
-				m->w.x + e,
-				m->w.y + e,
-				MAX(1, m->w.width - 2 * e),
-				MAX(1, m->w.height - 2 * e),
-			};
-			dwindle_recalc(*root, e);
+			int root_idx = -1;
+			for (int j = 0; j < tree->node_count; j++) {
+				if (tree->nodes[j].parent < 0) {
+					root_idx = j;
+					break;
+				}
+			}
+			if (root_idx >= 0) {
+				tree->nodes[root_idx].box = (struct wlr_box){
+					m->w.x + e,
+					m->w.y + e,
+					MAX(1, m->w.width - 2 * e),
+					MAX(1, m->w.height - 2 * e),
+				};
+			}
+			dwindle_recalc(tree, e);
 		}
 	}
 

@@ -85,6 +85,9 @@
 #include "ipc_socket.h"
 #include "common.h"
 
+#include <assert.h>
+#include <string.h>
+
 /* macros */
 #define CLEANMASK(mask) (mask & ~WLR_MODIFIER_CAPS)
 #define END(A) ((A) + LENGTH(A))
@@ -299,6 +302,11 @@ static struct wlr_xdg_activation_v1 *activation;
 static struct wlr_xdg_decoration_manager_v1 *xdg_decoration_mgr;
 struct wl_list clients; /* tiling order */
 struct wl_list fstack;  /* focus order */
+
+Client **client_arr;
+int nclients, client_cap;
+Client **fstack_arr;
+int nfstack, fstack_cap;
 static struct wlr_idle_notifier_v1 *idle_notifier;
 static struct wlr_idle_inhibit_manager_v1 *idle_inhibit_mgr;
 static struct wlr_layer_shell_v1 *layer_shell;
@@ -465,13 +473,52 @@ static void applyrules(Client *c) {
   setmon(c, mon, newtags);
 }
 
+static void client_arr_add(Client *c) {
+  if (nclients >= client_cap) {
+    client_cap = client_cap ? client_cap * 2 : 64;
+    client_arr = realloc(client_arr, client_cap * sizeof(Client *));
+  }
+  client_arr[nclients++] = c;
+}
+
+static void client_arr_remove(Client *c) {
+  for (int i = 0; i < nclients; i++) {
+    if (client_arr[i] == c) {
+      client_arr[i] = client_arr[--nclients];
+      return;
+    }
+  }
+}
+
+static void fstack_arr_add(Client *c) {
+  if (nfstack >= fstack_cap) {
+    fstack_cap = fstack_cap ? fstack_cap * 2 : 64;
+    fstack_arr = realloc(fstack_arr, fstack_cap * sizeof(Client *));
+  }
+  memmove(&fstack_arr[1], &fstack_arr[0], nfstack * sizeof(Client *));
+  fstack_arr[0] = c;
+  nfstack++;
+}
+
+static void fstack_arr_remove(Client *c) {
+  for (int i = 0; i < nfstack; i++) {
+    if (fstack_arr[i] == c) {
+      memmove(&fstack_arr[i], &fstack_arr[i + 1],
+              (nfstack - i - 1) * sizeof(Client *));
+      nfstack--;
+      return;
+    }
+  }
+}
+
 void arrange(Monitor *m) {
   Client *c;
 
   if (!m->wlr_output->enabled)
     return;
 
-  wl_list_for_each(c, &clients, link) {
+  for (int i = 0; i < nclients; i++) {
+    c = client_arr[i];
     if (c->mon == m) {
       wlr_scene_node_set_enabled(&c->scene->node, VISIBLEON(c, m));
       client_set_suspended(c, !VISIBLEON(c, m));
@@ -487,7 +534,8 @@ void arrange(Monitor *m) {
 
   /* We move all clients (except fullscreen and unmanaged) to LyrTile while
    * in floating layout to avoid "real" floating clients be always on top */
-  wl_list_for_each(c, &clients, link) {
+  for (int i = 0; i < nclients; i++) {
+    c = client_arr[i];
     if (c->mon != m || c->scene->node.parent == layers[LyrFS])
       continue;
 
@@ -759,7 +807,7 @@ static void cleanupmon(struct wl_listener *listener, void *data) {
   ipc_socket_send_output_event();
   if (m->cold) {
     for (int i = 0; i < TAGCOUNT; i++)
-      dwindle_free_tree(m->cold->dwindle_root[i]);
+      dwindle_free_tree(&m->cold->dwindle_tree[i]);
     free(m->cold);
   }
   wlr_scene_node_destroy(&m->fullscreen_bg->node);
@@ -1474,6 +1522,8 @@ void focusclient(Client *c, int lift) {
   if (c && !client_is_unmanaged(c)) {
     wl_list_remove(&c->flink);
     wl_list_insert(&fstack, &c->flink);
+    fstack_arr_remove(c);
+    fstack_arr_add(c);
     selmon = c->mon;
     c->isurgent = 0;
 
@@ -1658,10 +1708,9 @@ void focusdir(const Arg *arg) {
  * will focus the topmost client of this mon, when actually will
  * only return that client */
 Client *focustop(Monitor *m) {
-  Client *c;
-  wl_list_for_each(c, &fstack, flink) {
-    if (VISIBLEON(c, m))
-      return c;
+  for (int i = 0; i < nfstack; i++) {
+    if (VISIBLEON(fstack_arr[i], m))
+      return fstack_arr[i];
   }
   return nullptr;
 }
@@ -2165,6 +2214,8 @@ static void mapnotify(struct wl_listener *listener, void *data) {
   /* Insert this client into client lists. */
   wl_list_insert(&clients, &c->link);
   wl_list_insert(&fstack, &c->flink);
+  client_arr_add(c);
+  fstack_arr_add(c);
 
   /* Set initial monitor, tags, floating status, and focus:
    * we always consider floating, clients that have parent and thus
@@ -3349,6 +3400,11 @@ static void setup(void) {
   wl_list_init(&clients);
   wl_list_init(&fstack);
 
+  client_cap = 64;
+  client_arr = ecalloc(client_cap, sizeof(Client *));
+  fstack_cap = 64;
+  fstack_arr = ecalloc(fstack_cap, sizeof(Client *));
+
   xdg_shell = wlr_xdg_shell_create(dpy, 6);
   wl_signal_add(&xdg_shell->events.new_toplevel, &new_xdg_toplevel);
   wl_signal_add(&xdg_shell->events.new_popup, &new_xdg_popup);
@@ -3574,22 +3630,28 @@ static void swapdir(const Arg *arg) {
 
   if (curlayout(selmon)->arrange == dwindle) {
     int ti = current_tag_idx(selmon);
-    DwindleNode **root = &selmon->cold->dwindle_root[ti];
-    if (*root) {
-      DwindleNode *leaf_sel = dwindle_find_leaf(*root, sel);
-      DwindleNode *leaf_other = dwindle_find_leaf(*root, other);
-      if (leaf_sel && leaf_other) {
-        leaf_sel->client = other;
-        leaf_other->client = sel;
+    DwindleTree *tree = &selmon->cold->dwindle_tree[ti];
+    if (tree->nodes) {
+      int idx_sel = dwindle_find_leaf(tree, sel);
+      int idx_other = dwindle_find_leaf(tree, other);
+      if (idx_sel >= 0 && idx_other >= 0) {
+        tree->nodes[idx_sel].client = other;
+        tree->nodes[idx_other].client = sel;
         int e = (selmon->gaps && cfg.appearance.gaps) ? (int)cfg.appearance.gaps
                                                       : 0;
-        (*root)->box = (struct wlr_box){
-            selmon->w.x + e,
-            selmon->w.y + e,
-            MAX(1, selmon->w.width - 2 * e),
-            MAX(1, selmon->w.height - 2 * e),
-        };
-        dwindle_recalc(*root, e);
+        /* Find root node (parent == -1) and set its box, then recalc */
+        for (int i = 0; i < tree->node_count; i++) {
+          if (tree->nodes[i].parent < 0) {
+            tree->nodes[i].box = (struct wlr_box){
+                selmon->w.x + e,
+                selmon->w.y + e,
+                MAX(1, selmon->w.width - 2 * e),
+                MAX(1, selmon->w.height - 2 * e),
+            };
+            break;
+          }
+        }
+        dwindle_recalc(tree, e);
       }
     }
   } else if (curlayout(selmon)->arrange == master) {
@@ -3692,9 +3754,11 @@ static void unmapnotify(struct wl_listener *listener, void *data) {
   } else {
     Monitor *oldmon = c->mon;
     wl_list_remove(&c->link);
+    client_arr_remove(c);
     dwindle_remove_client(c);
     master_remove_client(c);
     wl_list_remove(&c->flink);
+    fstack_arr_remove(c);
     /* Clear any stale scratchpad references to this client */
     if (oldmon) {
       if (oldmon->scratchpad_current == c)

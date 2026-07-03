@@ -30,6 +30,11 @@ typedef union {
 #define MAX(A, B) ((A) > (B) ? (A) : (B))
 #define MIN(A, B) ((A) < (B) ? (A) : (B))
 
+extern struct Client **client_arr;
+extern int nclients;
+extern struct Client **fstack_arr;
+extern int nfstack;
+
 /* Convenience wrapper for the function below */
 #define VISIBLEON(C, M) visibleon((C), (M))
 
