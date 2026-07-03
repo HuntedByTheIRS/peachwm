@@ -63,19 +63,25 @@ official scenefx release ([0.4.1](https://github.com/wlrfx/scenefx/releases/tag/
 targets wlroots 0.19 and is **not compatible**.
 
 The Makefile looks for `scenefx-0.5` via pkg-config. This version does
-**not exist as an official release** — it refers to a distro-patched
-scenefx that has been updated to build against wlroots 0.20 and had its
-SONAME bumped to `libscenefx-0.5.so` to avoid version conflicts.
+**not exist as an official release** — you must build scenefx from the
+master branch to get a wlroots 0.20 compatible build.
 
-**How to get a compatible build:**
+**Building scenefx from source:**
 
-- **Arch (CachyOS):** Install `scenefx-wlroots20-git` from the
-  [CachyOS repo](https://github.com/CachyOS/CachyOS-PKGBUILDS) (used
-  by CI — version `0.4.1.r32.g7829fdc-1` or later).
-- **Other distros:** Build scenefx from
-  [git master](https://github.com/wlrfx/scenefx) and bump the project
-  version in `meson.build` to `0.5.0` before installing, or create a
-  symlink/wrapper so `pkg-config` finds it as `scenefx-0.5`.
+```bash
+git clone https://github.com/wlrfx/scenefx.git
+cd scenefx
+meson setup build
+ninja -C build
+sudo ninja -C build install
+```
+
+The master branch `meson.build` already sets the project version to `0.5.0`
+and produces `libscenefx-0.5.so` with the `scenefx-0.5` pkg-config target.
+No version patching needed.
+
+**CachyOS users:** Install `scenefx-wlroots20-git` from the
+[CachyOS repo](https://github.com/CachyOS/CachyOS-PKGBUILDS) instead.
 
 ## Configuration
 
