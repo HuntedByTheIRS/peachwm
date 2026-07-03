@@ -472,7 +472,10 @@ static void applyrules(Client *c) {
   /* Initialize rule-controlled defaults */
   c->can_float = true;
   c->can_fullscreen = true;
-  memset(&c->rule_effects, 0xFF, sizeof(c->rule_effects));
+  c->rule_effects = (ClientRuleEffects){
+    .rounding = true, .shadows = true, .transparency = true, .blur = true,
+    .gaps = true, .smartgaps = true, .border = true, .sloppy_focus = true,
+  };
 
   for (ri = 0; ri < cfg.nrules; ri++) {
     const CfgRule *r = &cfg.rules[ri];
@@ -2584,7 +2587,7 @@ static void pointerfocus(Client *c, struct wlr_surface *surface, double sx, doub
   struct timespec now;
 
   if (surface != seat->pointer_state.focused_surface && cfg.sloppyfocus &&
-      c->rule_effects.sloppy_focus && time && c && !client_is_unmanaged(c)) {
+      time && c && !client_is_unmanaged(c) && c->rule_effects.sloppy_focus) {
     warp_focus = false;
     focusclient(c, 0);
     warp_focus = true;
@@ -3395,7 +3398,10 @@ reapply_client_rules(void)
 		/* Reset rule-controlled defaults */
 		c->can_float = true;
 		c->can_fullscreen = true;
-		memset(&c->rule_effects, 0xFF, sizeof(c->rule_effects));
+		c->rule_effects = (ClientRuleEffects){
+			.rounding = true, .shadows = true, .transparency = true, .blur = true,
+			.gaps = true, .smartgaps = true, .border = true, .sloppy_focus = true,
+		};
 
 		const char *appid = client_get_appid(c);
 		const char *title = client_get_title(c);
