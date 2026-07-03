@@ -33,22 +33,29 @@ input = {
 	accel_speed = 0.0,
 }
 
--- Rules let you match windows by app_id, title, or class and apply window-manager
--- settings.  Set `apply_effects = false` to disable compositor effects (shadows,
--- transparency, rounded corners) on a matched window.
 rules = {
-	--   { app_id = "Gimp",                              floating = true,  monitor = -1 },
-	--   { app_id = "firefox", tags = 1 << 8,            floating = false, monitor = -1 },
-	--
-	--   -- `tags = "any"` places the window on whichever tag happens to be focused
-	--   -- `monitor = "default"` sends the window to the current / primary monitor
-	--   { app_id = "Alacritty", tags = "any",           monitor = "default" },
-	--
-	--   -- `can_float = false` locks the window into tiling (prevents togglefloating)
-	--   { app_id = "pavucontrol", floating = true,      can_float = false },
-	--
-	--   -- `title` matching works alongside or instead of app_id:
-	--   -- { title = "Save As",     floating = true,    apply_effects = false },
+	{
+		app_id = "firefox",
+		floating = false,
+		can_float = true,
+		fullscreen = false,
+		can_fullscreen = true,
+		tags = "any", -- or a number to specify
+		monitor = "default", -- or specify a number
+		apply_effects = {
+			rounding = true,
+			shadows = false,
+			transparency = false,
+			blur = false,
+			gaps = true,
+			smartgaps = false,
+			border = true,
+			sloppy_focus = false,
+		},
+	},
+
+	--   { app_id = "Gimp",    floating = true,  monitor = -1 },
+	--   { app_id = "firefox", tags = 1 << 8,    floating = false, monitor = -1 },
 }
 
 monitors = {
@@ -74,7 +81,7 @@ effects = {
 		corner_radius = 0, -- 0 = off, or a pixel value like 6, 10, 14
 
 		shadows = {
-			shadows = true,
+			shadows = false,
 			shadow_radius = 24,
 			shadow_offset_x = 0,
 			shadow_offset_y = 8,
@@ -90,7 +97,7 @@ effects = {
 		},
 
 		transparency = {
-			enabled = true,
+			enabled = false,
 
 			opacity_fullscreen = 1.0,
 			opacity_focused = 0.98,
@@ -101,7 +108,7 @@ effects = {
 			fullscreen_transparent = false,
 
 			blur = {
-				enabled = true,
+				enabled = false,
 				radius = 15,
 				passes = 3,
 				noise = 0.05,
