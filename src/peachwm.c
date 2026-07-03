@@ -1756,6 +1756,14 @@ static void gpureset(struct wl_listener *listener, void *data) {
 
   wlr_compositor_set_renderer(compositor, drw);
 
+  if (cfg.effects.windows.transparency.blur.enabled) {
+    wlr_scene_set_blur_data(scene,
+        cfg.effects.windows.transparency.blur.passes,
+        cfg.effects.windows.transparency.blur.radius,
+        cfg.effects.windows.transparency.blur.noise,
+        1.0f, 1.0f, 1.0f);
+  }
+
   wl_list_for_each(m, &mons, link) {
     wlr_output_init_render(m->wlr_output, alloc, drw);
   }
@@ -2158,6 +2166,22 @@ apply_surface_corners(struct wlr_scene_node *node, int radius)
 	}
 }
 
+static void
+apply_surface_opacity(struct wlr_scene_node *node, float opacity)
+{
+	opacity = fmaxf(0.0f, fminf(1.0f, opacity));
+	if (node->type == WLR_SCENE_NODE_BUFFER) {
+		struct wlr_scene_buffer *buffer = wlr_scene_buffer_from_node(node);
+		wlr_scene_buffer_set_opacity(buffer, opacity);
+	} else if (node->type == WLR_SCENE_NODE_TREE) {
+		struct wlr_scene_tree *tree = wlr_scene_tree_from_node(node);
+		struct wlr_scene_node *child;
+		wl_list_for_each(child, &tree->children, link) {
+			apply_surface_opacity(child, opacity);
+		}
+	}
+}
+
 static void mapnotify(struct wl_listener *listener, void *data) {
   /* Called when the surface is mapped, or ready to display on-screen. */
   Client *p = nullptr;
@@ -2223,6 +2247,30 @@ static void mapnotify(struct wl_listener *listener, void *data) {
           ? wlr_scene_xdg_surface_create(c->scene, c->surface.xdg)
           : wlr_scene_subsurface_tree_create(c->scene, client_surface(c));
   c->scene_surface->node.data = c;
+
+  /* Create blur node (always created, visibility controlled via set_enabled) */
+  c->blur = wlr_scene_blur_create(c->scene,
+      (int)(c->geom.width - 2 * c->bw),
+      (int)(c->geom.height - 2 * c->bw));
+  if (c->blur) {
+    wlr_scene_node_set_position(&c->blur->node, c->bw, c->bw);
+    /* Place blur BELOW surface so it samples background BEFORE the sharp surface composites */
+    wlr_scene_node_place_below(&c->blur->node, &c->scene_surface->node);
+    if (c->shadow)
+      wlr_scene_node_place_above(&c->blur->node, &c->shadow->node);
+    wlr_scene_blur_set_corner_radius(c->blur, c->corner_radius);
+    wlr_scene_blur_set_alpha(c->blur, 1.0f);
+    wlr_scene_blur_set_strength(c->blur, 1.0f);
+    /* Set transparency mask source so SceneFX only renders blur where window has alpha < 1.0 */
+    struct wlr_scene_node *child;
+    wl_list_for_each(child, &c->scene_surface->children, link) {
+      if (child->type == WLR_SCENE_NODE_BUFFER) {
+        wlr_scene_blur_set_transparency_mask_source(c->blur,
+            wlr_scene_buffer_from_node(child));
+        break;
+      }
+    }
+  }
 
   wlr_scene_node_raise_to_top(&c->border_bg->node);
 
@@ -2635,6 +2683,53 @@ static void rendermon(struct wl_listener *listener, void *data) {
     }
   }
 
+  /* Apply window transparency */
+  {
+    Client *c;
+    wl_list_for_each(c, &clients, link) {
+      if (c->mon != m)
+        continue;
+      if (!cfg.effects.windows.transparency.enabled)
+        continue;
+      if (!VISIBLEON(c, m))
+        continue;
+      if (!c->scene_surface)
+        continue;
+
+      bool transparent = true;
+      /* fullscreen: only if fullscreen_transparent */
+      if (c->isfullscreen) {
+        transparent = cfg.effects.windows.transparency.fullscreen_transparent;
+      } else {
+        /* only_floating: don't apply to tiled */
+        if (cfg.effects.windows.transparency.only_floating && !c->isfloating)
+          transparent = false;
+        /* nogaps_transparent: don't apply if gaps are off */
+        if (!cfg.effects.windows.transparency.nogaps_transparent && !c->mon->gaps)
+          transparent = false;
+        /* smart_gaps edge case */
+        if (!cfg.effects.windows.transparency.nogaps_transparent
+            && cfg.appearance.smart_gaps && !c->isfloating
+            && c->geom.x == c->mon->w.x && c->geom.y == c->mon->w.y
+            && c->geom.x + c->geom.width == c->mon->w.x + c->mon->w.width
+            && c->geom.y + c->geom.height == c->mon->w.y + c->mon->w.height)
+          transparent = false;
+      }
+
+      float opacity = 1.0f;
+      if (transparent) {
+        if (c->isfullscreen)
+          opacity = cfg.effects.windows.transparency.opacity_fullscreen;
+        else if (c == focustop(selmon))
+          opacity = cfg.effects.windows.transparency.opacity_focused;
+        else
+          opacity = cfg.effects.windows.transparency.opacity_unfocused;
+      }
+
+      apply_surface_opacity(&c->scene_surface->node, opacity);
+    }
+  }
+
   wlr_scene_output_commit(m->scene_output, nullptr);
 
 skip:
@@ -2774,6 +2869,51 @@ void resize(Client *c, struct wlr_box geo, int interact) {
     }
   }
 
+  /* Blur re-apply */
+  if (c->blur) {
+    int cw = (int)c->geom.width;
+    int ch = (int)c->geom.height;
+    int bw_i = (int)c->bw;
+    wlr_scene_blur_set_size(c->blur, cw - 2*bw_i, ch - 2*bw_i);
+    wlr_scene_node_set_position(&c->blur->node, bw_i, bw_i);
+    if (effective_r > 0 && !c->isfullscreen)
+      wlr_scene_blur_set_corner_radii(c->blur, corner_radii_all(effective_r));
+    else
+      wlr_scene_blur_set_corner_radius(c->blur, 0);
+    struct clipped_region cr = {
+        .area = {bw_i, bw_i, cw - 2*bw_i, ch - 2*bw_i},
+        .corners = effective_r > 0 ? corner_radii_all(effective_r) : corner_radii_all(0),
+    };
+    wlr_scene_blur_set_clipped_region(c->blur, cr);
+
+    /* Evaluate blur visibility */
+    bool blur_enabled = cfg.effects.windows.transparency.blur.enabled;
+    if (!cfg.effects.windows.transparency.blur.nogaps_blur && !c->mon->gaps)
+      blur_enabled = false;
+    /* smart_gaps edge case */
+    if (!cfg.effects.windows.transparency.blur.nogaps_blur
+        && cfg.appearance.smart_gaps && !c->isfloating
+        && c->geom.x == c->mon->w.x && c->geom.y == c->mon->w.y
+        && c->geom.x + c->geom.width == c->mon->w.x + c->mon->w.width
+        && c->geom.y + c->geom.height == c->mon->w.y + c->mon->w.height)
+      blur_enabled = false;
+    /* fullscreen */
+    if (c->isfullscreen)
+      blur_enabled = cfg.effects.windows.transparency.blur.fullscreen_blur;
+    /* only_floating */
+    if (!c->isfullscreen && cfg.effects.windows.transparency.blur.only_floating && !c->isfloating)
+      blur_enabled = false;
+    /* blur_always: for inherently-transparent windows */
+    if (!blur_enabled && !c->isfullscreen
+        && cfg.effects.windows.transparency.blur.blur_always)
+      blur_enabled = true;
+    /* scratchpad windows */
+    if (c->isscratchpad)
+      blur_enabled = false;
+
+    wlr_scene_node_set_enabled(&c->blur->node, blur_enabled);
+  }
+
   /* this is a no-op if size hasn't changed */
   c->resize =
       client_set_size(c, c->geom.width - 2 * c->bw, c->geom.height - 2 * c->bw);
@@ -2899,6 +3039,8 @@ static void setfullscreen(Client *c, int fullscreen) {
 		if (c->border_bg) {
 			wlr_scene_node_set_enabled(&c->border_bg->node, false);
 		}
+		if (c->blur)
+			wlr_scene_node_set_enabled(&c->blur->node, false);
 	} else {
 		c->corner_radius = config_get_corner_radius();
 		if (c->border_bg) {
@@ -3186,6 +3328,39 @@ reapply_client_appearance(void)
 					wlr_scene_node_set_enabled(&c->shadow->node, false);
 				}
 			}
+		/* Blur re-apply on config reload */
+		if (cfg.effects.windows.transparency.blur.enabled) {
+			if (!c->blur) {
+				c->blur = wlr_scene_blur_create(c->scene,
+				    (int)(c->geom.width - 2 * (int)c->bw),
+				    (int)(c->geom.height - 2 * (int)c->bw));
+				if (c->blur) {
+					wlr_scene_node_set_position(&c->blur->node, c->bw, c->bw);
+					if (c->scene_surface)
+						wlr_scene_node_place_below(&c->blur->node, &c->scene_surface->node);
+					if (c->shadow)
+						wlr_scene_node_place_above(&c->blur->node, &c->shadow->node);
+					wlr_scene_blur_set_alpha(c->blur, 1.0f);
+					wlr_scene_blur_set_strength(c->blur, 1.0f);
+					/* Set transparency mask source */
+					struct wlr_scene_node *child;
+					wl_list_for_each(child, &c->scene_surface->children, link) {
+						if (child->type == WLR_SCENE_NODE_BUFFER) {
+							wlr_scene_blur_set_transparency_mask_source(c->blur,
+							    wlr_scene_buffer_from_node(child));
+							break;
+						}
+					}
+				}
+			}
+			if (c->blur && c->corner_radius > 0 && !c->isfullscreen)
+				wlr_scene_blur_set_corner_radius(c->blur, c->corner_radius);
+		} else {
+			if (c->blur) {
+				wlr_scene_node_destroy(&c->blur->node);
+				c->blur = nullptr;
+			}
+		}
 		}
 		if (!client_is_unmanaged(c)) {
 			float *color = c->isurgent ? cfg.appearance.urgent_color
@@ -3244,6 +3419,15 @@ on_config_reload(const Config *newcfg, void *ud)
 	nc->buttons = NULL;
 	nc->scrolls = NULL;
 
+	/* Re-apply global blur parameters */
+	if (cfg.effects.windows.transparency.blur.enabled) {
+		wlr_scene_set_blur_data(scene,
+		    cfg.effects.windows.transparency.blur.passes,
+		    cfg.effects.windows.transparency.blur.radius,
+		    cfg.effects.windows.transparency.blur.noise,
+		    1.0f, 1.0f, 1.0f);
+	}
+
 	reapply_monitor_config();
 	reapply_client_appearance();
 	reapply_client_rules();
@@ -3273,6 +3457,15 @@ do_reload(void)
 		fresh.keybinds = NULL;
 		fresh.buttons = NULL;
 		fresh.scrolls = NULL;
+
+		/* Re-apply global blur parameters */
+		if (cfg.effects.windows.transparency.blur.enabled) {
+			wlr_scene_set_blur_data(scene,
+			    cfg.effects.windows.transparency.blur.passes,
+			    cfg.effects.windows.transparency.blur.radius,
+			    cfg.effects.windows.transparency.blur.noise,
+			    1.0f, 1.0f, 1.0f);
+		}
 
 		reapply_monitor_config();
 		reapply_client_appearance();
@@ -3364,6 +3557,17 @@ static void setup(void) {
   if (!(drw = fx_renderer_create(backend)))
     die("couldn't create renderer");
   wl_signal_add(&drw->events.lost, &gpu_reset);
+
+  /* Set global blur parameters */
+  if (cfg.effects.windows.transparency.blur.enabled) {
+    wlr_scene_set_blur_data(scene,
+        cfg.effects.windows.transparency.blur.passes,
+        cfg.effects.windows.transparency.blur.radius,
+        cfg.effects.windows.transparency.blur.noise,
+        1.0f,  /* brightness */
+        1.0f,  /* contrast */
+        1.0f); /* saturation */
+  }
 
   /* Create shm, drm and linux_dmabuf interfaces by ourselves.
    * The simplest way is to call:

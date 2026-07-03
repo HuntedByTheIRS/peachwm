@@ -121,9 +121,34 @@ typedef struct {
 	bool     shadow_clip;
 } CfgEffectsWindowShadows;
 
+/* Window transparency */
+
 typedef struct {
-	int                      corner_radius;  /* 0 = off, >0 = radius in pixels */
-	CfgEffectsWindowShadows  shadows;
+	bool     enabled;
+	int      radius;
+	int      passes;
+	float    noise;
+	bool     nogaps_blur;
+	bool     only_floating;
+	bool     fullscreen_blur;
+	bool     blur_always;
+} CfgEffectsWindowBlur;
+
+typedef struct {
+	bool     enabled;
+	float    opacity_fullscreen;
+	float    opacity_focused;
+	float    opacity_unfocused;
+	bool     nogaps_transparent;
+	bool     only_floating;
+	bool     fullscreen_transparent;
+	CfgEffectsWindowBlur blur;
+} CfgEffectsWindowTransparency;
+
+typedef struct {
+	int                              corner_radius;  /* 0 = off, >0 = radius in pixels */
+	CfgEffectsWindowShadows          shadows;
+	CfgEffectsWindowTransparency     transparency;
 } CfgEffectsWindows;
 
 typedef struct {

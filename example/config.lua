@@ -75,6 +75,30 @@ effects = {
 			only_floating = false,
 			shadow_clip = true,
 		},
+
+		transparency = {
+			enabled = true,
+
+			opacity_fullscreen = 1.0,
+			opacity_focused = 0.98,
+			opacity_unfocused = 0.96,
+
+			nogaps_transparent = true,
+			only_floating = false,
+			fullscreen_transparent = false,
+
+			blur = {
+				enabled = true,
+				radius = 15,
+				passes = 3,
+				noise = 0.05,
+
+				nogaps_blur = true,
+				only_floating = false,
+				fullscreen_blur = false,
+				blur_always = true,
+			},
+		},
 	},
 }
 

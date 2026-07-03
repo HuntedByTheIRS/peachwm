@@ -36,6 +36,7 @@ typedef struct Client {
 	unsigned int bw;
 	int corner_radius;
 	struct wlr_scene_shadow *shadow;
+	struct wlr_scene_blur *blur;
 
 	/* WARM — accessed less frequently */
 	struct wl_list link;

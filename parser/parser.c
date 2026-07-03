@@ -677,6 +677,71 @@ parse_shadows(lua_State *L, CfgEffectsWindowShadows *s)
 }
 
 static void
+parse_blur(lua_State *L, CfgEffectsWindowBlur *b)
+{
+	lua_getfield(L, -1, "blur");
+	if (!lua_istable(L, -1)) {
+		lua_pop(L, 1);
+		return;
+	}
+
+	b->enabled = lua_get_bool(L, "enabled", false);
+	b->radius = lua_get_int(L, "radius", 0);
+	if (b->radius < 0) b->radius = 0;
+	b->passes = lua_get_int(L, "passes", 0);
+	if (b->passes < 0) b->passes = 0;
+
+	double n = lua_get_double(L, "noise", 0.0);
+	if (n < 0.0) n = 0.0;
+	if (n > 1.0) n = 1.0;
+	b->noise = (float)n;
+
+	b->nogaps_blur = lua_get_bool(L, "nogaps_blur", false);
+	b->only_floating = lua_get_bool(L, "only_floating", false);
+	b->fullscreen_blur = lua_get_bool(L, "fullscreen_blur", false);
+	b->blur_always = lua_get_bool(L, "blur_always", false);
+
+	lua_pop(L, 1); /* pop blur table */
+}
+
+static void
+parse_transparency(lua_State *L, CfgEffectsWindowTransparency *t)
+{
+	lua_getfield(L, -1, "transparency");
+	if (!lua_istable(L, -1)) {
+		lua_pop(L, 1);
+		return;
+	}
+
+	t->enabled = lua_get_bool(L, "enabled", false);
+
+	double op;
+
+	op = lua_get_double(L, "opacity_fullscreen", 1.0);
+	if (op < 0.0) op = 0.0;
+	if (op > 1.0) op = 1.0;
+	t->opacity_fullscreen = (float)op;
+
+	op = lua_get_double(L, "opacity_focused", 1.0);
+	if (op < 0.0) op = 0.0;
+	if (op > 1.0) op = 1.0;
+	t->opacity_focused = (float)op;
+
+	op = lua_get_double(L, "opacity_unfocused", 1.0);
+	if (op < 0.0) op = 0.0;
+	if (op > 1.0) op = 1.0;
+	t->opacity_unfocused = (float)op;
+
+	t->nogaps_transparent = lua_get_bool(L, "nogaps_transparent", false);
+	t->only_floating = lua_get_bool(L, "only_floating", false);
+	t->fullscreen_transparent = lua_get_bool(L, "fullscreen_transparent", false);
+
+	parse_blur(L, &t->blur);
+
+	lua_pop(L, 1); /* pop transparency table */
+}
+
+static void
 parse_effects(lua_State *L, CfgEffects *e)
 {
 	/* Defaults */
@@ -699,6 +764,8 @@ parse_effects(lua_State *L, CfgEffects *e)
 		e->windows.corner_radius = 0;
 
 	parse_shadows(L, &e->windows.shadows);
+
+	parse_transparency(L, &e->windows.transparency);
 
 	lua_pop(L, 2); /* pop windows + effects */
 }
