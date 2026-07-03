@@ -19,6 +19,18 @@ struct wlr_scene_shadow;
 /* Client types */
 enum { XDGShell, LayerShell, X11 };
 
+/* Per-client rule effects — standalone typedef (no parser.h include to avoid circular deps) */
+typedef struct {
+	bool rounding;
+	bool shadows;
+	bool transparency;
+	bool blur;
+	bool gaps;
+	bool smartgaps;
+	bool border;
+	bool sloppy_focus;
+} ClientRuleEffects;
+
 typedef struct Client {
 	/* Must keep this field first — union-cast discriminant */
 	unsigned int type; /* XDGShell or X11 */
@@ -49,6 +61,11 @@ typedef struct Client {
 	struct wlr_scene_rect *border_bg; /* single border rect with clipped content hole */
 	struct wlr_scene_tree *scene_surface;
 	struct wlr_xdg_toplevel_decoration_v1 *decoration;
+
+	/* Per-rule constraints and effects */
+	bool can_float;
+	bool can_fullscreen;
+	ClientRuleEffects rule_effects;
 
 	/* COLD — wl_listeners (set up once, rarely touched after) */
 	struct wl_listener commit;
