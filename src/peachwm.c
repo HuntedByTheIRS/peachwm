@@ -2219,6 +2219,8 @@ static void mapnotify(struct wl_listener *listener, void *data) {
     goto unset_fullscreen;
   }
 
+  applyrules(c);
+
   /* Create single border background rect */
   if (c->rule_effects.border) {
     c->border_bg = wlr_scene_rect_create(c->scene, 0, 0,
@@ -2250,7 +2252,8 @@ static void mapnotify(struct wl_listener *listener, void *data) {
               - cfg.effects.windows.shadows.shadow_expand,
           cfg.effects.windows.shadows.shadow_offset_y
               - cfg.effects.windows.shadows.shadow_expand);
-      wlr_scene_node_place_below(&c->shadow->node, &c->border_bg->node);
+      if (c->border_bg)
+        wlr_scene_node_place_below(&c->shadow->node, &c->border_bg->node);
     }
   }
 
@@ -2286,6 +2289,8 @@ static void mapnotify(struct wl_listener *listener, void *data) {
     }
   }
 
+  if (c->isfullscreen)
+    setfullscreen(c, 1);
   if (c->border_bg)
     wlr_scene_node_raise_to_top(&c->border_bg->node);
 
@@ -2301,17 +2306,12 @@ static void mapnotify(struct wl_listener *listener, void *data) {
   client_arr_add(c);
   fstack_arr_add(c);
 
-  /* Set initial monitor, tags, floating status, and focus:
-   * we always consider floating, clients that have parent and thus
-   * we set the same tags and monitor as its parent.
-   * If there is no parent, apply rules */
+  /* Override monitor/tags for parented clients (dialogs, popups):
+   * they inherit the parent's monitor and tags; applyrules(c) already
+   * ran above for rule_effects (border, shadow, blur, corner_radius). */
   if ((p = client_get_parent(c))) {
     c->isfloating = 1;
     setmon(c, p->mon, p->tags);
-  } else {
-    applyrules(c);
-    if (c->isfullscreen)
-      setfullscreen(c, 1);
   }
   /* Auto-send to scratchpad if scratchpad is visible */
   if (c->mon && c->mon->scratchpad_visible && !c->isscratchpad &&
@@ -3338,8 +3338,9 @@ reapply_client_appearance(void)
 						        - cfg.effects.windows.shadows.shadow_expand,
 						    cfg.effects.windows.shadows.shadow_offset_y
 						        - cfg.effects.windows.shadows.shadow_expand);
-					wlr_scene_node_place_below(&c->shadow->node,
-					    &c->border_bg->node);
+					if (c->border_bg)
+						wlr_scene_node_place_below(&c->shadow->node,
+						    &c->border_bg->node);
 					}
 				}
 			} else {
