@@ -384,7 +384,7 @@ ipc_build_workspace(struct json_writer *w, Monitor *m, uint32_t tag_bit,
 	json_object_end(w);
 
 	json_key_string(w, "output", m->wlr_output->name);
-	json_key_string(w, "layout", m->ltsymbol[tag_idx]);
+	json_key_string(w, "layout", m->cold->ltsymbol[tag_idx]);
 	json_key_string(w, "representation", "");
 	json_key_string(w, "type", "workspace");
 
@@ -675,7 +675,7 @@ ipc_handle_get_tree(struct ipc_client *client)
 			json_key_string(&w, "type", "workspace");
 			json_key_string(&w, "name",
 					ipc_tag_name(i));
-			json_key_string(&w, "layout", m->ltsymbol[i]);
+			json_key_string(&w, "layout", m->cold->ltsymbol[i]);
 
 			json_key(&w, "rect");
 			json_object_start(&w);

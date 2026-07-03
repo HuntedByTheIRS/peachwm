@@ -401,21 +401,22 @@ static void apply_workspace_layout(Monitor *m, int tag_idx) {
   if (!layout_name[0])
     return;
 
+  /* ensure_cold will be called by whichever write path triggers first */
   for (int li = 0; li < (int)layout_count; li++) {
     if (layouts[li].symbol && !strcmp(layout_name, layouts[li].symbol)) {
-      m->lt[tag_idx][m->sellt[tag_idx]] = &layouts[li];
+      m->cold->lt[tag_idx][m->cold->sellt[tag_idx]] = &layouts[li];
       break;
     }
     if (!strcmp(layout_name, "dwindle") && layouts[li].arrange == dwindle) {
-      m->lt[tag_idx][m->sellt[tag_idx]] = &layouts[li];
+      m->cold->lt[tag_idx][m->cold->sellt[tag_idx]] = &layouts[li];
       break;
     }
     if (!strcmp(layout_name, "master") && layouts[li].arrange == master) {
-      m->lt[tag_idx][m->sellt[tag_idx]] = &layouts[li];
+      m->cold->lt[tag_idx][m->cold->sellt[tag_idx]] = &layouts[li];
       break;
     }
     if (!strcmp(layout_name, "monocle") && layouts[li].arrange == monocle) {
-      m->lt[tag_idx][m->sellt[tag_idx]] = &layouts[li];
+      m->cold->lt[tag_idx][m->cold->sellt[tag_idx]] = &layouts[li];
       break;
     }
   }
@@ -481,8 +482,8 @@ void arrange(Monitor *m) {
                              (c = focustop(m)) && c->isfullscreen);
 
   int ti = current_tag_idx(m);
-  strncpy(m->ltsymbol[ti], curlayout(m)->symbol, LENGTH(m->ltsymbol[ti]));
-  m->ltsymbol[ti][LENGTH(m->ltsymbol[ti]) - 1] = '\0';
+  strncpy(m->cold->ltsymbol[ti], curlayout(m)->symbol, LENGTH(m->cold->ltsymbol[ti]));
+  m->cold->ltsymbol[ti][LENGTH(m->cold->ltsymbol[ti]) - 1] = '\0';
 
   /* We move all clients (except fullscreen and unmanaged) to LyrTile while
    * in floating layout to avoid "real" floating clients be always on top */
@@ -756,9 +757,10 @@ static void cleanupmon(struct wl_listener *listener, void *data) {
   closemon(m);
   ext_workspace_cleanupmon(m);
   ipc_socket_send_output_event();
-  for (int i = 0; i < TAGCOUNT; i++) {
-    dwindle_free_tree(m->dwindle_root[i]);
-    m->dwindle_root[i] = nullptr;
+  if (m->cold) {
+    for (int i = 0; i < TAGCOUNT; i++)
+      dwindle_free_tree(m->cold->dwindle_root[i]);
+    free(m->cold);
   }
   wlr_scene_node_destroy(&m->fullscreen_bg->node);
   free(m);
@@ -1077,8 +1079,10 @@ static void createmon(struct wl_listener *listener, void *data) {
       if (!r->name[0] || strstr(wlr_output->name, r->name)) {
         m->m.x = r->x;
         m->m.y = r->y;
-        m->mfact = r->mfact;
-        m->nmaster = r->nmaster;
+        /* Allocate cold state lazily via the shared helper */
+        ensure_cold(m);
+        m->cold->mfact = r->mfact;
+        m->cold->nmaster = r->nmaster;
         /* Determine monitor's default layout */
         const Layout *mon_layout = &layouts[0];
         for (int li = 0; li < (int)layout_count; li++) {
@@ -1102,15 +1106,15 @@ static void createmon(struct wl_listener *listener, void *data) {
         const Layout *alt_layout = &layouts[layout_count > 1 && mon_layout != &layouts[1]];
         /* Propagate monitor layout to all tags */
         for (int ti = 0; ti < TAGCOUNT; ti++) {
-          m->lt[ti][0] = mon_layout;
-          m->lt[ti][1] = alt_layout;
-          m->sellt[ti] = 0;
+          m->cold->lt[ti][0] = mon_layout;
+          m->cold->lt[ti][1] = alt_layout;
+          m->cold->sellt[ti] = 0;
         }
         /* Apply per-workspace default layout for all tags */
         for (int ti = 0; ti < TAGCOUNT; ti++)
           apply_workspace_layout(m, ti);
-        strncpy(m->ltsymbol[0], curlayout(m)->symbol, LENGTH(m->ltsymbol[0]));
-        m->ltsymbol[0][LENGTH(m->ltsymbol[0]) - 1] = '\0';
+        strncpy(m->cold->ltsymbol[0], curlayout(m)->symbol, LENGTH(m->cold->ltsymbol[0]));
+        m->cold->ltsymbol[0][LENGTH(m->cold->ltsymbol[0]) - 1] = '\0';
         wlr_output_state_set_scale(&state, r->scale);
         wlr_output_state_set_transform(&state, r->transform);
         break;
@@ -1474,8 +1478,8 @@ void focusclient(Client *c, int lift) {
     c->isurgent = 0;
 
     /* Track focused client for dwindle insertion anchor */
-    if (c->mon && !c->isfloating && !c->isfullscreen)
-      c->mon->dwindle_focus[current_tag_idx(c->mon)] = c;
+    if (c->mon && !c->isfloating && !c->isfullscreen && c->mon->cold)
+      c->mon->cold->dwindle_focus[current_tag_idx(c->mon)] = c;
 
     /* Don't change border color if there is an exclusive focus or we are
      * handling a drag operation */
@@ -2507,7 +2511,7 @@ void printstatus(void) {
     printf("%s tags %" PRIu32 " %" PRIu32 " %" PRIu32 " %" PRIu32 "\n",
            m->wlr_output->name, occ, m->tagset[m->seltags], sel, urg);
     int _ti = current_tag_idx(m);
-    printf("%s layout %s\n", m->wlr_output->name, m->ltsymbol[_ti]);
+    printf("%s layout %s\n", m->wlr_output->name, m->cold->ltsymbol[_ti]);
     ext_workspace_printstatus(m);
   }
   fflush(stdout);
@@ -2853,26 +2857,27 @@ static void setfullscreen(Client *c, int fullscreen) {
 static void setlayout(const Arg *arg) {
   if (!selmon)
     return;
+  ensure_cold(selmon);
   int ti = current_tag_idx(selmon);
   /* arg->ui is an index into layouts[]. If out of range, just toggle. */
   if (arg && arg->ui < layout_count) {
-    if (selmon->lt[ti][selmon->sellt[ti]] != &layouts[arg->ui])
-      selmon->sellt[ti] ^= 1;
-    selmon->lt[ti][selmon->sellt[ti]] = &layouts[arg->ui];
+    if (selmon->cold->lt[ti][selmon->cold->sellt[ti]] != &layouts[arg->ui])
+      selmon->cold->sellt[ti] ^= 1;
+    selmon->cold->lt[ti][selmon->cold->sellt[ti]] = &layouts[arg->ui];
   } else {
-    selmon->sellt[ti] ^= 1;
+    selmon->cold->sellt[ti] ^= 1;
   }
-  strncpy(selmon->ltsymbol[ti], selmon->lt[ti][selmon->sellt[ti]]->symbol,
-          LENGTH(selmon->ltsymbol[ti]));
-  selmon->ltsymbol[ti][LENGTH(selmon->ltsymbol[ti]) - 1] = '\0';
+  strncpy(selmon->cold->ltsymbol[ti], selmon->cold->lt[ti][selmon->cold->sellt[ti]]->symbol,
+          LENGTH(selmon->cold->ltsymbol[ti]));
+  selmon->cold->ltsymbol[ti][LENGTH(selmon->cold->ltsymbol[ti]) - 1] = '\0';
 
   /* Convert windows when switching to master: set focused client as master */
   if (curlayout(selmon)->arrange == master) {
     Client *sel = focustop(selmon);
     if (sel && VISIBLEON(sel, selmon) && !sel->isfloating && !sel->isfullscreen)
-      selmon->master_master[ti] = sel;
+      selmon->cold->master_master[ti] = sel;
     else
-      selmon->master_master[ti] = nullptr;
+      selmon->cold->master_master[ti] = nullptr;
     /* Convert to floating: float all tiled clients */
   } else if (!curlayout(selmon)->arrange) {
     Client *c;
@@ -3007,8 +3012,9 @@ reapply_monitor_config(void)
 		for (int ri = 0; ri < cfg.nmonitors; ri++) {
 			const CfgMonitorRule *r = &cfg.monitors[ri];
 			if (!r->name[0] || strstr(m->wlr_output->name, r->name)) {
-		m->mfact = r->mfact;
-		m->nmaster = r->nmaster;
+		ensure_cold(m);
+		m->cold->mfact = r->mfact;
+		m->cold->nmaster = r->nmaster;
 		/* Map layout name */
 		const Layout *mon_layout = &layouts[0];
 		for (int li = 0; li < (int)layout_count; li++) {
@@ -3031,9 +3037,9 @@ reapply_monitor_config(void)
 		}
 		const Layout *alt_layout = &layouts[layout_count > 1 && mon_layout != &layouts[1]];
 		for (int ti = 0; ti < TAGCOUNT; ti++) {
-			m->lt[ti][0] = mon_layout;
-			m->lt[ti][1] = alt_layout;
-			m->sellt[ti] = 0;
+			m->cold->lt[ti][0] = mon_layout;
+			m->cold->lt[ti][1] = alt_layout;
+			m->cold->sellt[ti] = 0;
 		}
 				/* Apply scale and transform */
 				struct wlr_output_state state;
@@ -3568,7 +3574,7 @@ static void swapdir(const Arg *arg) {
 
   if (curlayout(selmon)->arrange == dwindle) {
     int ti = current_tag_idx(selmon);
-    DwindleNode **root = &selmon->dwindle_root[ti];
+    DwindleNode **root = &selmon->cold->dwindle_root[ti];
     if (*root) {
       DwindleNode *leaf_sel = dwindle_find_leaf(*root, sel);
       DwindleNode *leaf_other = dwindle_find_leaf(*root, other);
@@ -3588,13 +3594,13 @@ static void swapdir(const Arg *arg) {
     }
   } else if (curlayout(selmon)->arrange == master) {
     int ti = current_tag_idx(selmon);
-    int side = selmon->master_side[ti];
+    int side = selmon->cold->master_side[ti];
 
-    if (sel == selmon->master_master[ti]) {
+    if (sel == selmon->cold->master_master[ti]) {
       /* master moving away from master side → flip */
       if ((side == 0 && arg->i == WLR_DIRECTION_RIGHT) ||
           (side == 1 && arg->i == WLR_DIRECTION_LEFT)) {
-        selmon->master_side[ti] = !side;
+        selmon->cold->master_side[ti] = !side;
         arrange(selmon);
         printstatus();
         focusclient(sel, 1);
@@ -3604,7 +3610,7 @@ static void swapdir(const Arg *arg) {
       /* stack moving toward master side → promote */
       if ((side == 0 && arg->i == WLR_DIRECTION_LEFT) ||
           (side == 1 && arg->i == WLR_DIRECTION_RIGHT)) {
-        selmon->master_master[ti] = sel;
+        selmon->cold->master_master[ti] = sel;
         arrange(selmon);
         printstatus();
         focusclient(sel, 1);

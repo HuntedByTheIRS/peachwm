@@ -40,6 +40,21 @@ const unsigned int layout_count = LENGTH(layouts);
  * helpers
  * ================================================================ */
 
+/* Allocate and default-initialize monitor cold state on first use. */
+void
+ensure_cold(Monitor *m)
+{
+	if (m->cold)
+		return;
+	m->cold = ecalloc(1, sizeof(MonitorCold));
+	for (int i = 0; i < TAGCOUNT; i++) {
+		m->cold->lt[i][0] = &layouts[0];
+		m->cold->lt[i][1] = &layouts[0];
+	}
+	m->cold->mfact = 0.55f;
+	m->cold->nmaster = 1;
+}
+
 /*
  * Returns the 0-based index of the lowest set tag bit for monitor m.
  * For single-tag views this is the exact tag. For multi-tag views it
@@ -64,7 +79,8 @@ const Layout *
 curlayout(Monitor *m)
 {
 	int ti = current_tag_idx(m);
-	return m->lt[ti][m->sellt[ti]];
+	ensure_cold(m);
+	return m->cold->lt[ti][m->cold->sellt[ti]];
 }
 
 /* ================================================================
@@ -230,10 +246,10 @@ void
 dwindle_remove_client(Client *c)
 {
 	Monitor *m = c->mon;
-	if (!m)
+	if (!m || !m->cold)
 		return;
 	for (int i = 0; i < TAGCOUNT; i++)
-		dwindle_remove(&m->dwindle_root[i], c);
+		dwindle_remove(&m->cold->dwindle_root[i], c);
 }
 
 /* ================================================================
@@ -243,6 +259,7 @@ dwindle_remove_client(Client *c)
 void
 dwindle(Monitor *m)
 {
+	ensure_cold(m);
 	Client *c;
 	int n = 0, e;
 
@@ -258,7 +275,7 @@ dwindle(Monitor *m)
 		: 0;
 
 	int ti = current_tag_idx(m);
-	DwindleNode **root = &m->dwindle_root[ti];
+	DwindleNode **root = &m->cold->dwindle_root[ti];
 
 	/* prune leaves whose clients are no longer tiled here */
 	{
@@ -295,11 +312,11 @@ dwindle(Monitor *m)
 
 	/*
 	 * Insert any newly visible client, splitting the focused node.
-	 * Use m->dwindle_focus[ti] so it actually splits what the user
+	 * Use m->cold->dwindle_focus[ti] so it actually splits what the user
 	 * was looking at when they spawned the window, rather than whatever
 	 * focustop() happens to return.
 	 */
-	Client *focused = m->dwindle_focus[ti];
+	Client *focused = m->cold->dwindle_focus[ti];
 
 	wl_list_for_each(c, &clients, link) {
 		if (!VISIBLEON(c, m) || c->isfloating || c->isfullscreen)
@@ -329,13 +346,14 @@ dwindle(Monitor *m)
 static void
 master_arrange(Monitor *m, int ti)
 {
+	ensure_cold(m);
 	Client *c, *master_c = nullptr;
 	Client *stack[256];
 	int nstack = 0, n = 0;
 
 	wl_list_for_each(c, &clients, link) {
 		if (VISIBLEON(c, m) && !c->isfloating) {
-			if (c == m->master_master[ti])
+			if (c == m->cold->master_master[ti])
 				master_c = c;
 			if (!c->isfullscreen)
 				n++;
@@ -348,7 +366,7 @@ master_arrange(Monitor *m, int ti)
 	if (!master_c) {
 		wl_list_for_each(c, &clients, link) {
 			if (VISIBLEON(c, m) && !c->isfloating && !c->isfullscreen) {
-				m->master_master[ti] = c;
+				m->cold->master_master[ti] = c;
 				master_c = c;
 				break;
 			}
@@ -374,9 +392,9 @@ master_arrange(Monitor *m, int ti)
 		return;
 	}
 
-	int master_w = MAX(1, (int)(aw * m->mfact));
+	int master_w = MAX(1, (int)(aw * m->cold->mfact));
 
-	if (m->master_side[ti] == 0) {
+	if (m->cold->master_side[ti] == 0) {
 		int stack_x = m->w.x + e + master_w + e;
 		int stack_w = MAX(1, aw - master_w - e);
 
@@ -421,11 +439,11 @@ void
 master_remove_client(Client *c)
 {
 	Monitor *m = c->mon;
-	if (!m)
+	if (!m || !m->cold)
 		return;
 	for (int i = 0; i < TAGCOUNT; i++) {
-		if (m->master_master[i] == c)
-			m->master_master[i] = nullptr;
+		if (m->cold->master_master[i] == c)
+			m->cold->master_master[i] = nullptr;
 	}
 }
 
@@ -479,8 +497,10 @@ swaptiled(Client *a, Client *b)
 		return;
 
 	wl_list_for_each(m, &mons, link) {
+		if (!m->cold)
+			continue;
 		for (int i = 0; i < TAGCOUNT; i++) {
-			DwindleNode **root = &m->dwindle_root[i];
+			DwindleNode **root = &m->cold->dwindle_root[i];
 			if (!*root)
 				continue;
 			DwindleNode *la = dwindle_find_leaf(*root, a);

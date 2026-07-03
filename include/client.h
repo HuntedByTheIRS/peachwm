@@ -20,23 +20,36 @@ struct wlr_scene_shadow;
 enum { XDGShell, LayerShell, X11 };
 
 typedef struct Client {
-	/* Must keep this field first */
-	unsigned int type; /* XDGShell or X11* */
+	/* Must keep this field first — union-cast discriminant */
+	unsigned int type; /* XDGShell or X11 */
 
+	/* HOT — accessed every frame / arrange / focus / resize */
 	Monitor *mon;
-	struct wlr_scene_tree *scene;
-	struct wlr_scene_rect *border_bg; /* single border rect with clipped content hole */
-	struct wlr_scene_tree *scene_surface;
-	struct wl_list link;
-	struct wl_list flink;
+	uint32_t tags;
+	int isfloating;
+	int isurgent;
+	int isfullscreen;
+	int isscratchpad;
 	struct wlr_box geom;   /* layout-relative, includes border */
 	struct wlr_box prev;   /* layout-relative, includes border */
 	struct wlr_box bounds; /* only width and height are used */
+	unsigned int bw;
+	int corner_radius;
+	struct wlr_scene_shadow *shadow;
+
+	/* WARM — accessed less frequently */
+	struct wl_list link;
+	struct wl_list flink;
 	union {
 		struct wlr_xdg_surface *xdg;
 		struct wlr_xwayland_surface *xwayland;
 	} surface;
+	struct wlr_scene_tree *scene;
+	struct wlr_scene_rect *border_bg; /* single border rect with clipped content hole */
+	struct wlr_scene_tree *scene_surface;
 	struct wlr_xdg_toplevel_decoration_v1 *decoration;
+
+	/* COLD — wl_listeners (set up once, rarely touched after) */
 	struct wl_listener commit;
 	struct wl_listener map;
 	struct wl_listener maximize;
@@ -53,26 +66,25 @@ typedef struct Client {
 	struct wl_listener configure;
 	struct wl_listener set_hints;
 #endif
-	unsigned int bw;
-	int corner_radius;
-	struct wlr_scene_shadow *shadow;
-	uint32_t tags;
-	int isfloating, isurgent, isfullscreen, isscratchpad;
 	uint32_t resize; /* configure serial of a pending resize */
 } Client;
 
 typedef struct {
-	/* Must keep this field first */
+	/* Must keep this field first — union-cast discriminant */
 	unsigned int type; /* LayerShell */
 
+	/* HOT */
 	Monitor *mon;
 	struct wlr_scene_tree *scene;
 	struct wlr_scene_tree *popups;
 	struct wlr_scene_layer_surface_v1 *scene_layer;
-	struct wl_list link;
 	int mapped;
 	struct wlr_layer_surface_v1 *layer_surface;
 
+	/* WARM */
+	struct wl_list link;
+
+	/* COLD — wl_listeners */
 	struct wl_listener destroy;
 	struct wl_listener unmap;
 	struct wl_listener surface_commit;

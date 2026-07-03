@@ -743,8 +743,20 @@ config_load(const char *path, Config *cfg)
 	parse_monitors  (L, cfg);
 	parse_workspace_layouts(L, cfg);
 	parse_keybinds  (L, cfg);
+	if (cfg->nkeybinds >= CFG_MAX_KEYBINDS)
+		fprintf(stderr, "peachwm config: number of keybinds reached the limit (%d). "
+		                "Increase CFG_MAX_KEYBINDS or remove some binds.\n",
+		        CFG_MAX_KEYBINDS);
 	parse_buttons   (L, cfg);
+	if (cfg->nbuttons >= CFG_MAX_KEYBINDS)
+		fprintf(stderr, "peachwm config: number of button binds reached the limit (%d). "
+		                "Increase CFG_MAX_KEYBINDS or remove some binds.\n",
+		        CFG_MAX_KEYBINDS);
 	parse_scrolls   (L, cfg);
+	if (cfg->nscrolls >= CFG_MAX_KEYBINDS)
+		fprintf(stderr, "peachwm config: number of scroll binds reached the limit (%d). "
+		                "Increase CFG_MAX_KEYBINDS or remove some binds.\n",
+		        CFG_MAX_KEYBINDS);
 	parse_autostart (L, cfg);
 	parse_effects  (L, &cfg->effects);
 

@@ -26,6 +26,7 @@ void monocle(Monitor *m);
 /* helpers used across modules */
 [[nodiscard]] int current_tag_idx(Monitor *m);
 [[nodiscard]] const Layout *curlayout(Monitor *m);
+void ensure_cold(Monitor *m);
 
 /* dwindle tree helpers (exposed for swapdir) */
 [[nodiscard]] DwindleNode *dwindle_find_leaf(DwindleNode *n, Client *c);

@@ -5,6 +5,7 @@
 
 #include "client.h"
 #include "ipc.h"
+#include "layout.h"
 #include "util.h"
 
 /* IPC globals */
@@ -75,7 +76,7 @@ ipc_send_output_state(IpcOutput *ipc_out)
 	}
 
 	/* layout symbol */
-	zpeachwm_ipc_output_v2_send_layout_symbol(res, m->ltsymbol[current_tag_idx(m)]);
+	zpeachwm_ipc_output_v2_send_layout_symbol(res, m->cold->ltsymbol[current_tag_idx(m)]);
 
 	/* title/appid/fullscreen/floating */
 	if (c) {
@@ -171,10 +172,11 @@ ipc_output_handle_set_layout(struct wl_client *client,
 	if (!m || idx >= (uint32_t)layout_count) return;
 
 	int ti = current_tag_idx(m);
-	if (m->lt[ti][m->sellt[ti]] != &layouts[idx])
-		m->sellt[ti] ^= 1;
-	m->lt[ti][m->sellt[ti]] = &layouts[idx];
-	strncpy(m->ltsymbol[ti], layouts[idx].symbol, LENGTH(m->ltsymbol[ti]));
+	ensure_cold(m);
+	if (m->cold->lt[ti][m->cold->sellt[ti]] != &layouts[idx])
+		m->cold->sellt[ti] ^= 1;
+	m->cold->lt[ti][m->cold->sellt[ti]] = &layouts[idx];
+	strncpy(m->cold->ltsymbol[ti], layouts[idx].symbol, LENGTH(m->cold->ltsymbol[ti]));
 	arrange(m);
 	printstatus();
 }

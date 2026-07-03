@@ -21,6 +21,20 @@ typedef struct {
 	void (*arrange)(Monitor *);
 } Layout;
 
+/* Cold state — accessed only on layout changes, not every frame.
+ * Allocated lazily on first dwindle/master layout use. */
+typedef struct MonitorCold {
+	const Layout *lt[TAGCOUNT][2];
+	unsigned int sellt[TAGCOUNT];
+	float mfact;
+	int nmaster;
+	char ltsymbol[TAGCOUNT][16];
+	DwindleNode *dwindle_root[TAGCOUNT];
+	struct Client *dwindle_focus[TAGCOUNT];
+	struct Client *master_master[TAGCOUNT];
+	int master_side[TAGCOUNT];
+} MonitorCold;
+
 struct Monitor {
 	struct wl_list link;
 	struct wlr_output *wlr_output;
@@ -34,21 +48,12 @@ struct Monitor {
 	struct wlr_box m;         /* monitor area, layout-relative */
 	struct wlr_box w;         /* window area, layout-relative */
 	struct wl_list layers[4]; /* LayerSurface.link */
-	const Layout *lt[TAGCOUNT][2];  /* per-tag layout slots */
+	struct MonitorCold *cold; /* lazy-allocated layout state */
 	int gaps;
 	unsigned int seltags;
 	struct wlr_ext_workspace_group_handle_v1 *ext_group;
-	unsigned int sellt[TAGCOUNT];   /* per-tag layout toggle index */
 	uint32_t tagset[2];
-	float mfact;
-	int nmaster;
-	char ltsymbol[TAGCOUNT][16];    /* per-tag layout symbol */
 	int asleep;
-	DwindleNode *dwindle_root[TAGCOUNT]; /* one tree per tag */
-	struct Client *dwindle_focus[TAGCOUNT];     /* insertion anchor, one per tag */
-	/* master/stack layout state */
-	struct Client *master_master[TAGCOUNT]; /* the master client (NULL if none) */
-	int master_side[TAGCOUNT];       /* 0 = master on left, 1 = master on right */
 	int scratchpad_visible;          /* whether scratchpad is shown */
 	struct Client *scratchpad_prev_focus;   /* client focused before scratchpad opened */
 	struct Client *scratchpad_current;      /* currently visible scratchpad client */

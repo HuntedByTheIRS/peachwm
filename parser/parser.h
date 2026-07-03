@@ -6,9 +6,9 @@
 /* Maximum lengths. Good for the soul, they say */
 #define CFG_MAX_RULES      64
 #define CFG_MAX_MONITORS   16
-#define CFG_MAX_KEYBINDS   256
-#define CFG_MAX_ARGS       16
-#define CFG_MAX_STRLEN     256
+#define CFG_MAX_KEYBINDS   128
+#define CFG_MAX_ARGS       8
+#define CFG_MAX_STRLEN     64
 #define CFG_MAX_AUTOSTART  32
 #define CFG_MAX_AUTOSTART_CMD 512
 
