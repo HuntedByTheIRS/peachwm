@@ -58,8 +58,7 @@ monitors = {
 --
 effects = {
 	windows = {
-		rounded = false,
-		rounding = "none", -- off, light, or heavy
+		corner_radius = 0, -- 0 = off, or a pixel value like 6, 10, 14
 
 		shadows = {
 			shadows = true,

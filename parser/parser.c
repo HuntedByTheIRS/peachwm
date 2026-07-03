@@ -655,8 +655,7 @@ static void
 parse_effects(lua_State *L, CfgEffects *e)
 {
 	/* Defaults */
-	e->windows.rounded = false;
-	strcpy(e->windows.rounding, "off");
+	e->windows.corner_radius = 0;
 
 	lua_getglobal(L, "effects");
 	if (!lua_istable(L, -1)) {
@@ -670,14 +669,9 @@ parse_effects(lua_State *L, CfgEffects *e)
 		return;
 	}
 
-	e->windows.rounded = lua_get_bool(L, "rounded", false);
-
-	char scratch[CFG_MAX_STRLEN] = {0};
-	lua_get_string(L, "rounding", scratch, sizeof(scratch));
-	if (!strcmp(scratch, "light") || !strcmp(scratch, "heavy"))
-		strncpy(e->windows.rounding, scratch, CFG_MAX_STRLEN - 1);
-	else
-		strcpy(e->windows.rounding, "off");
+	e->windows.corner_radius = lua_get_int(L, "corner_radius", 0);
+	if (e->windows.corner_radius < 0)
+		e->windows.corner_radius = 0;
 
 	parse_shadows(L, &e->windows.shadows);
 

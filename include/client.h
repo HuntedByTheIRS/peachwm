@@ -25,7 +25,7 @@ typedef struct Client {
 
 	Monitor *mon;
 	struct wlr_scene_tree *scene;
-	struct wlr_scene_rect *border[4]; /* top, bottom, left, right */
+	struct wlr_scene_rect *border_bg; /* single border rect with clipped content hole */
 	struct wlr_scene_tree *scene_surface;
 	struct wl_list link;
 	struct wl_list flink;

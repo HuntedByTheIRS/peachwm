@@ -122,8 +122,7 @@ typedef struct {
 } CfgEffectsWindowShadows;
 
 typedef struct {
-	bool                     rounded;
-	char                     rounding[CFG_MAX_STRLEN];
+	int                      corner_radius;  /* 0 = off, >0 = radius in pixels */
 	CfgEffectsWindowShadows  shadows;
 } CfgEffectsWindows;
 
