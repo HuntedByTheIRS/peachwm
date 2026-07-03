@@ -469,11 +469,19 @@ static void applyrules(Client *c) {
   appid = client_get_appid(c);
   title = client_get_title(c);
 
+  c->can_float = true;
+  c->can_fullscreen = true;
+  memset(&c->rule_effects, 0xFF, sizeof(c->rule_effects));
+
   for (ri = 0; ri < cfg.nrules; ri++) {
     const CfgRule *r = &cfg.rules[ri];
     if ((!r->title[0] || strstr(title, r->title)) &&
         (!r->app_id[0] || strstr(appid, r->app_id))) {
       c->isfloating = r->floating;
+      c->isfullscreen = r->fullscreen;
+      c->can_float = r->can_float;
+      c->can_fullscreen = r->can_fullscreen;
+      memcpy(&c->rule_effects, &r->apply_effects, sizeof(c->rule_effects));
       newtags |= r->tags;
       i = 0;
       wl_list_for_each(m, &mons, link) {
@@ -2295,6 +2303,8 @@ static void mapnotify(struct wl_listener *listener, void *data) {
     setmon(c, p->mon, p->tags);
   } else {
     applyrules(c);
+    if (c->isfullscreen)
+      setfullscreen(c, 1);
   }
   /* Auto-send to scratchpad if scratchpad is visible */
   if (c->mon && c->mon->scratchpad_visible && !c->isscratchpad &&
@@ -3806,13 +3816,13 @@ static void tagmon(const Arg *arg) {
 void togglefloating(const Arg *arg) {
   Client *sel = focustop(selmon);
   /* return if fullscreen or scratchpad (strictly floating) */
-  if (sel && !sel->isfullscreen && !sel->isscratchpad)
+  if (sel && !sel->isfullscreen && !sel->isscratchpad && sel->can_float)
     setfloating(sel, !sel->isfloating);
 }
 
 void togglefullscreen(const Arg *arg) {
   Client *sel = focustop(selmon);
-  if (sel)
+  if (sel && sel->can_fullscreen)
     setfullscreen(sel, !sel->isfullscreen);
 }
 
