@@ -996,11 +996,13 @@ watch_dispatch(int fd, uint32_t mask, void *data)
 
 	/*
 	 * Some editors (vim, nano) delete-and-recreate files on save,
-	 * which removes our watch (which is a pain in the ass. 
-	 * Hence, re-add it defensively. It's good for the soul)
+	 * which replaces the inode and invalidates the existing watch.
+	 * inotify_add_watch() on the path creates a new watch on the
+	 * new inode (or is a no-op on the same inode). We do NOT call
+	 * inotify_rm_watch() first — that would generate IN_IGNORED
+	 * events into our own queue, causing an infinite reload loop.
 	 */
 
-	inotify_rm_watch(ws->inotify_fd, ws->watch_fd);
 	ws->watch_fd = inotify_add_watch(ws->inotify_fd, ws->path,
 	                                  IN_CLOSE_WRITE | IN_MOVED_TO | IN_CREATE);
 
