@@ -45,6 +45,19 @@ typedef struct {
 	int    tap_button_map;  /* libinput enum value */
 } CfgInput;
 
+/* Per-window apply-effects mask */
+
+typedef struct {
+	bool     rounding;
+	bool     shadows;
+	bool     transparency;
+	bool     blur;
+	bool     gaps;
+	bool     smartgaps;
+	bool     border;
+	bool     sloppy_focus;
+} CfgApplyEffects;
+
 /* Window Rules  */
 
 typedef struct {
@@ -52,6 +65,10 @@ typedef struct {
 	char     title[CFG_MAX_STRLEN];  /* empty string = wildcard */
 	uint32_t tags;
 	bool     floating;
+	bool     fullscreen;
+	bool     can_float;
+	bool     can_fullscreen;
+	CfgApplyEffects apply_effects;
 	int      monitor;                /* -1 = current */
 } CfgRule;
 
