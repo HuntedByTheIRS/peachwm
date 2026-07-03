@@ -32,7 +32,7 @@ PeachWM is maintained by [HuntedByTheIRS](https://github.com/HuntedByTheIRS).
 - libinput
 - wayland
 - wlroots-0.20 (compiled with the libinput backend)
-- [scenefx](https://github.com/wlrfx/scenefx) (for rendering effects)
+- [scenefx](https://github.com/wlrfx/scenefx) (for rendering effects) — **see note below**
 - xkbcommon
 - wayland-protocols (compile-time only)
 - pkg-config (compile-time only)
@@ -52,7 +52,29 @@ no longer experimental.
 
 - **Rounded corners** — smooth, configurable corner rounding on windows
 - **Shadows** — drop shadows for windows
+- **Blur** — background blur behind transparent windows
 - More effects are planned and on the way.
+
+### ⚠️ SceneFX version note
+
+PeachWM requires a scenefx build targeting **wlroots 0.20**. The latest
+official scenefx release ([0.4.1](https://github.com/wlrfx/scenefx/releases/tag/0.4.1))
+targets wlroots 0.19 and is **not compatible**.
+
+The Makefile looks for `scenefx-0.5` via pkg-config. This version does
+**not exist as an official release** — it refers to a distro-patched
+scenefx that has been updated to build against wlroots 0.20 and had its
+SONAME bumped to `libscenefx-0.5.so` to avoid version conflicts.
+
+**How to get a compatible build:**
+
+- **Arch (CachyOS):** Install `scenefx-wlroots20-git` from the
+  [CachyOS repo](https://github.com/CachyOS/CachyOS-PKGBUILDS) (used
+  by CI — version `0.4.1.r32.g7829fdc-1` or later).
+- **Other distros:** Build scenefx from
+  [git master](https://github.com/wlrfx/scenefx) and bump the project
+  version in `meson.build` to `0.5.0` before installing, or create a
+  symlink/wrapper so `pkg-config` finds it as `scenefx-0.5`.
 
 ## Configuration
 
