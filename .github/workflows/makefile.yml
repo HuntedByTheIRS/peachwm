@@ -31,7 +31,19 @@ jobs:
           libinput \
           lua \
           libxcb \
-          xcb-util-wm
+          xcb-util-wm \
+          meson \
+          ninja \
+          libglvnd \
+          glslang
+
+    - name: Build and install scenefx
+      run: |
+        git clone https://github.com/wlrfx/scenefx.git /tmp/scenefx
+        cd /tmp/scenefx
+        meson setup build/
+        ninja -C build/
+        ninja -C build/ install
 
     - name: Test all targets and packaging modes
       run: make test
