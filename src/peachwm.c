@@ -3231,7 +3231,19 @@ on_config_reload(const Config *newcfg, void *ud)
 	Monitor *m;
 	(void)ud;
 	reapply_input_config(newcfg);
+
+	/* Free old dynamic arrays, then deep-copy new in.
+	 * Zero source pointers so watch_dispatch's calloc'd Config
+	 * can be freed without double-freeing the arrays we now own. */
+	free(cfg.keybinds);
+	free(cfg.buttons);
+	free(cfg.scrolls);
 	cfg = *newcfg;
+	Config *nc = (Config *)newcfg;
+	nc->keybinds = NULL;
+	nc->buttons = NULL;
+	nc->scrolls = NULL;
+
 	reapply_monitor_config();
 	reapply_client_appearance();
 	reapply_client_rules();
@@ -3252,7 +3264,16 @@ do_reload(void)
 	if (config_load(config_path, &fresh) == 0) {
 		fprintf(stderr, "peachwm: config reloaded via IPC\n");
 		reapply_input_config(&fresh);
+
+		/* Free old dynamic arrays, copy fresh in, zero source */
+		free(cfg.keybinds);
+		free(cfg.buttons);
+		free(cfg.scrolls);
 		cfg = fresh;
+		fresh.keybinds = NULL;
+		fresh.buttons = NULL;
+		fresh.scrolls = NULL;
+
 		reapply_monitor_config();
 		reapply_client_appearance();
 		reapply_client_rules();

@@ -4,6 +4,7 @@
  * but you get the idea */
 
 #include "parser.h"
+#include "util.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -361,9 +362,17 @@ parse_keybinds(lua_State *L, Config *cfg)
 	cfg->nkeybinds = 0;
 
 	int n = (int)lua_rawlen(L, -1);
-	for (int i = 1; i <= n && cfg->nkeybinds < CFG_MAX_KEYBINDS; i++) {
+	for (int i = 1; i <= n; i++) {
 		lua_rawgeti(L, -1, i);
 		if (!lua_istable(L, -1)) { lua_pop(L, 1); continue; }
+
+		while (cfg->nkeybinds >= cfg->keybinds_cap) {
+			cfg->keybinds_cap *= 2;
+			cfg->keybinds = realloc(cfg->keybinds,
+			                        cfg->keybinds_cap * sizeof(CfgKeybind));
+			memset(cfg->keybinds + cfg->nkeybinds, 0,
+			       (cfg->keybinds_cap - cfg->nkeybinds) * sizeof(CfgKeybind));
+		}
 
 		CfgKeybind *kb = &cfg->keybinds[cfg->nkeybinds];
 		memset(kb, 0, sizeof(*kb));
@@ -429,9 +438,17 @@ parse_buttons(lua_State *L, Config *cfg)
 
 	cfg->nbuttons = 0;
 	int n = (int)lua_rawlen(L, -1);
-	for (int i = 1; i <= n && cfg->nbuttons < CFG_MAX_KEYBINDS; i++) {
+	for (int i = 1; i <= n; i++) {
 		lua_rawgeti(L, -1, i);
 		if (!lua_istable(L, -1)) { lua_pop(L, 1); continue; }
+
+		while (cfg->nbuttons >= cfg->buttons_cap) {
+			cfg->buttons_cap *= 2;
+			cfg->buttons = realloc(cfg->buttons,
+			                       cfg->buttons_cap * sizeof(CfgButton));
+			memset(cfg->buttons + cfg->nbuttons, 0,
+			       (cfg->buttons_cap - cfg->nbuttons) * sizeof(CfgButton));
+		}
 
 		CfgButton *b = &cfg->buttons[cfg->nbuttons++];
 		memset(b, 0, sizeof(*b));
@@ -509,9 +526,17 @@ parse_scrolls(lua_State *L, Config *cfg)
 
 	cfg->nscrolls = 0;
 	int n = (int)lua_rawlen(L, -1);
-	for (int i = 1; i <= n && cfg->nscrolls < CFG_MAX_KEYBINDS; i++) {
+	for (int i = 1; i <= n; i++) {
 		lua_rawgeti(L, -1, i);
 		if (!lua_istable(L, -1)) { lua_pop(L, 1); continue; }
+
+		while (cfg->nscrolls >= cfg->scrolls_cap) {
+			cfg->scrolls_cap *= 2;
+			cfg->scrolls = realloc(cfg->scrolls,
+			                       cfg->scrolls_cap * sizeof(CfgScroll));
+			memset(cfg->scrolls + cfg->nscrolls, 0,
+			       (cfg->scrolls_cap - cfg->nscrolls) * sizeof(CfgScroll));
+		}
 
 		CfgScroll *s = &cfg->scrolls[cfg->nscrolls];
 		memset(s, 0, sizeof(*s));
@@ -742,16 +767,24 @@ config_load(const char *path, Config *cfg)
 	parse_rules     (L, cfg);
 	parse_monitors  (L, cfg);
 	parse_workspace_layouts(L, cfg);
+	cfg->keybinds = ecalloc(16, sizeof(CfgKeybind));
+	cfg->keybinds_cap = 16;
 	parse_keybinds  (L, cfg);
 	if (cfg->nkeybinds >= CFG_MAX_KEYBINDS)
 		fprintf(stderr, "peachwm config: number of keybinds reached the limit (%d). "
 		                "Increase CFG_MAX_KEYBINDS or remove some binds.\n",
 		        CFG_MAX_KEYBINDS);
+
+	cfg->buttons = ecalloc(16, sizeof(CfgButton));
+	cfg->buttons_cap = 16;
 	parse_buttons   (L, cfg);
 	if (cfg->nbuttons >= CFG_MAX_KEYBINDS)
 		fprintf(stderr, "peachwm config: number of button binds reached the limit (%d). "
 		                "Increase CFG_MAX_KEYBINDS or remove some binds.\n",
 		        CFG_MAX_KEYBINDS);
+
+	cfg->scrolls = ecalloc(16, sizeof(CfgScroll));
+	cfg->scrolls_cap = 16;
 	parse_scrolls   (L, cfg);
 	if (cfg->nscrolls >= CFG_MAX_KEYBINDS)
 		fprintf(stderr, "peachwm config: number of scroll binds reached the limit (%d). "

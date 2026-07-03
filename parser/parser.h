@@ -143,14 +143,17 @@ typedef struct {
 	CfgMonitorRule monitors[CFG_MAX_MONITORS];
 	int            nmonitors;
 
-	CfgKeybind    keybinds[CFG_MAX_KEYBINDS];
+	CfgKeybind   *keybinds;
 	int           nkeybinds;
+	int           keybinds_cap;
 
-	CfgButton     buttons[CFG_MAX_KEYBINDS];
+	CfgButton    *buttons;
 	int           nbuttons;
+	int           buttons_cap;
 
-	CfgScroll     scrolls[CFG_MAX_KEYBINDS];
+	CfgScroll    *scrolls;
 	int           nscrolls;
+	int           scrolls_cap;
 
 	bool          sloppyfocus;
 	bool          bypass_surface_visibility;
