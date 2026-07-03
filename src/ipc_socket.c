@@ -58,6 +58,10 @@ static char ipc_socket_path[256];
 /* Simple JSON builder                                                 */
 /* ------------------------------------------------------------------ */
 
+/* Shared JSON buffer — persists between IPC calls (single-threaded) */
+static char *json_shared_buf = NULL;
+static size_t json_shared_cap = 0;
+
 struct json_writer {
 	char *buf;
 	size_t len;
@@ -69,9 +73,15 @@ struct json_writer {
 static void
 json_init(struct json_writer *w)
 {
-	w->cap = 4096;
-	w->buf = ecalloc(1, w->cap);
+	if (!json_shared_buf) {
+		json_shared_cap = 4096;
+		json_shared_buf = malloc(json_shared_cap);
+		if (!json_shared_buf)
+			die("json_init: malloc");
+	}
+	w->buf = json_shared_buf;
 	w->len = 0;
+	w->cap = json_shared_cap;
 	w->depth = -1;
 	memset(w->need_comma, 0, sizeof(w->need_comma));
 }
@@ -79,7 +89,7 @@ json_init(struct json_writer *w)
 static void
 json_finish(struct json_writer *w)
 {
-	free(w->buf);
+	(void)w;
 }
 
 static void
@@ -89,12 +99,14 @@ json_grow(struct json_writer *w, size_t needed)
 		return;
 	while (w->cap < w->len + needed)
 		w->cap *= 2;
-	char *newbuf = realloc(w->buf, w->cap);
+	char *newbuf = realloc(json_shared_buf, w->cap);
 	if (!newbuf) {
 		fprintf(stderr, "peachwm: json_grow realloc failed\n");
 		return;
 	}
-	w->buf = newbuf;
+	json_shared_buf = newbuf;
+	json_shared_cap = w->cap;
+	w->buf = json_shared_buf;
 }
 
 static void
@@ -919,10 +931,15 @@ ipc_client_handle_readable(int fd, uint32_t mask, void *data)
 		       c->hdr_buf + IPC_MAGIC_LEN + 4, sizeof(uint32_t));
 
 		if (c->payload_size > 0) {
+			if (c->payload_size > 65536)
+				c->payload_size = 65536;
 			if (c->payload_size > c->payload_alloc) {
+				size_t new_size = c->payload_size + 1;
+				if (new_size > 65536)
+					new_size = 65536;
 				free(c->payload);
-				c->payload_alloc = c->payload_size + 1;
-				c->payload = ecalloc(1, c->payload_alloc);
+				c->payload_alloc = new_size;
+				c->payload = ecalloc(1, new_size);
 			}
 			c->payload_len = 0;
 		}

@@ -92,6 +92,11 @@
 #define CLEANMASK(mask) (mask & ~WLR_MODIFIER_CAPS)
 #define END(A) ((A) + LENGTH(A))
 #define LISTEN(E, L, H) wl_signal_add((E), ((L)->notify = (H), (L)))
+/* DEPRECATED: embed wl_listeners in a tracking struct instead.  This macro
+ * heap-allocates a bare wl_listener (~24 B); prefer embedding the listener
+ * inside the owning struct so alloc/free discipline is coarser.  The one
+ * remaining caller (destroydragicon) is intentional — drag icons are one-shot
+ * and freed in the destroy handler anyway. */
 #define LISTEN_STATIC(E, H)                                                    \
   do {                                                                         \
     struct wl_listener *_l = ecalloc(1, sizeof(*_l));                          \
@@ -153,6 +158,15 @@ typedef struct {
   struct wlr_pointer_constraint_v1 *constraint;
   struct wl_listener destroy;
 } PointerConstraint;
+
+typedef struct {
+  struct wl_listener destroy;
+  struct wlr_idle_inhibitor_v1 *inhibitor;
+} IdleInhibitorTrack;
+
+typedef struct {
+  struct wl_listener commit;
+} PopupCommitTrack;
 
 typedef struct {
   const char *id;
@@ -976,8 +990,9 @@ static void commitpopup(struct wl_listener *listener, void *data) {
   box.x -= (type == LayerShell ? l->scene->node.x : c->geom.x);
   box.y -= (type == LayerShell ? l->scene->node.y : c->geom.y);
   wlr_xdg_popup_unconstrain_from_box(popup, &box);
+  PopupCommitTrack *track = wl_container_of(listener, track, commit);
   wl_list_remove(&listener->link);
-  free(listener);
+  free(track);
 }
 
 static void createdecoration(struct wl_listener *listener, void *data) {
@@ -994,7 +1009,10 @@ static void createdecoration(struct wl_listener *listener, void *data) {
 
 static void createidleinhibitor(struct wl_listener *listener, [[maybe_unused]] void *data) {
   struct wlr_idle_inhibitor_v1 *idle_inhibitor = data;
-  LISTEN_STATIC(&idle_inhibitor->events.destroy, destroyidleinhibitor);
+  IdleInhibitorTrack *track = ecalloc(1, sizeof(*track));
+  track->inhibitor = idle_inhibitor;
+  track->destroy.notify = destroyidleinhibitor;
+  wl_signal_add(&idle_inhibitor->events.destroy, &track->destroy);
 
   checkidleinhibitor(nullptr);
 }
@@ -1314,7 +1332,9 @@ static void createpopup(struct wl_listener *listener, void *data) {
   /* This event is raised when a client (either xdg-shell or layer-shell)
    * creates a new popup. */
   struct wlr_xdg_popup *popup = data;
-  LISTEN_STATIC(&popup->base->surface->events.commit, commitpopup);
+  PopupCommitTrack *track = ecalloc(1, sizeof(*track));
+  track->commit.notify = commitpopup;
+  wl_signal_add(&popup->base->surface->events.commit, &track->commit);
 }
 
 static void cursorconstrain(struct wlr_pointer_constraint_v1 *constraint) {
@@ -1368,11 +1388,12 @@ static void destroydragicon(struct wl_listener *listener, void *data) {
 }
 
 static void destroyidleinhibitor(struct wl_listener *listener, void *data) {
+  IdleInhibitorTrack *track = wl_container_of(listener, track, destroy);
   /* `data` is the wlr_surface of the idle inhibitor being destroyed,
    * at this point the idle inhibitor is still in the list of the manager */
   checkidleinhibitor(wlr_surface_get_root_surface(data));
   wl_list_remove(&listener->link);
-  free(listener);
+  free(track);
 }
 
 static void destroylayersurfacenotify(struct wl_listener *listener, void *data) {
@@ -3162,8 +3183,7 @@ reapply_client_appearance(void)
 				}
 			} else {
 				if (c->shadow) {
-					wlr_scene_node_destroy(&c->shadow->node);
-					c->shadow = NULL;
+					wlr_scene_node_set_enabled(&c->shadow->node, false);
 				}
 			}
 		}
