@@ -67,6 +67,10 @@ typedef struct Client {
 	bool can_fullscreen;
 	ClientRuleEffects rule_effects;
 
+	/* Deferred monitor/tags — set by applyrules, used by setmon in mapnotify */
+	Monitor *pending_mon;
+	uint32_t pending_tags;
+
 	/* COLD — wl_listeners (set up once, rarely touched after) */
 	struct wl_listener commit;
 	struct wl_listener map;

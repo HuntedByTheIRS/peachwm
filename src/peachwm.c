@@ -492,7 +492,8 @@ static void applyrules(Client *c) {
   }
 
   c->isfloating |= client_is_float_type(c);
-  setmon(c, mon, newtags);
+  c->pending_mon = mon;
+  c->pending_tags = newtags;
 }
 
 static void client_arr_add(Client *c) {
@@ -956,10 +957,9 @@ static void commitnotify(struct wl_listener *listener, void *data) {
      * a wrong monitor.
      */
     applyrules(c);
-    if (c->mon) {
-      client_set_scale(client_surface(c), c->mon->wlr_output->scale);
+    if (c->pending_mon) {
+      client_set_scale(client_surface(c), c->pending_mon->wlr_output->scale);
     }
-    setmon(c, nullptr, 0); /* Make sure to reapply rules in mapnotify() */
 
     wlr_xdg_toplevel_set_wm_capabilities(
         c->surface.xdg->toplevel, WLR_XDG_TOPLEVEL_WM_CAPABILITIES_FULLSCREEN);
@@ -2288,6 +2288,9 @@ static void mapnotify(struct wl_listener *listener, void *data) {
       }
     }
   }
+
+  /* Deferred setmon — scene nodes now exist */
+  setmon(c, c->pending_mon, c->pending_tags);
 
   if (c->isfullscreen)
     setfullscreen(c, 1);
