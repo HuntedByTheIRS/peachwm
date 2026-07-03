@@ -469,11 +469,20 @@ static void applyrules(Client *c) {
   appid = client_get_appid(c);
   title = client_get_title(c);
 
+  /* Initialize rule-controlled defaults */
+  c->can_float = true;
+  c->can_fullscreen = true;
+  memset(&c->rule_effects, 0xFF, sizeof(c->rule_effects));
+
   for (ri = 0; ri < cfg.nrules; ri++) {
     const CfgRule *r = &cfg.rules[ri];
     if ((!r->title[0] || strstr(title, r->title)) &&
         (!r->app_id[0] || strstr(appid, r->app_id))) {
       c->isfloating = r->floating;
+      c->isfullscreen = r->fullscreen;
+      c->can_float = r->can_float;
+      c->can_fullscreen = r->can_fullscreen;
+      memcpy(&c->rule_effects, &r->apply_effects, sizeof(c->rule_effects));
       newtags |= r->tags;
       i = 0;
       wl_list_for_each(m, &mons, link) {
@@ -1595,7 +1604,7 @@ void focusclient(Client *c, int lift) {
   /* Activate the new client */
   client_activate_surface(client_surface(c), 1);
 
-  if (cfg.sloppyfocus && warp_focus)
+  if (cfg.sloppyfocus && c->rule_effects.sloppy_focus && warp_focus)
     wlr_cursor_warp(cursor, nullptr, c->geom.x + c->geom.width / 2,
         c->geom.y + c->geom.height / 2);
 }
@@ -2575,7 +2584,7 @@ static void pointerfocus(Client *c, struct wlr_surface *surface, double sx, doub
   struct timespec now;
 
   if (surface != seat->pointer_state.focused_surface && cfg.sloppyfocus &&
-      time && c && !client_is_unmanaged(c)) {
+      c->rule_effects.sloppy_focus && time && c && !client_is_unmanaged(c)) {
     warp_focus = false;
     focusclient(c, 0);
     warp_focus = true;
@@ -2677,7 +2686,7 @@ static void rendermon(struct wl_listener *listener, void *data) {
   {
     Client *c;
     wl_list_for_each(c, &clients, link) {
-      if (c->mon == m && c->scene_surface && c->corner_radius > 0 && !c->isfullscreen) {
+      if (c->mon == m && c->scene_surface && c->corner_radius > 0 && !c->isfullscreen && c->rule_effects.rounding) {
         apply_surface_corners(&c->scene_surface->node, c->corner_radius);
       }
     }
@@ -2689,7 +2698,7 @@ static void rendermon(struct wl_listener *listener, void *data) {
     wl_list_for_each(c, &clients, link) {
       if (c->mon != m)
         continue;
-      if (!cfg.effects.windows.transparency.enabled)
+      if (!cfg.effects.windows.transparency.enabled || !c->rule_effects.transparency)
         continue;
       if (!VISIBLEON(c, m))
         continue;
@@ -2789,7 +2798,7 @@ void resize(Client *c, struct wlr_box geo, int interact) {
   }
 
   /* Update single border rect with clipped region hole */
-  if (c->border_bg) {
+  if (c->border_bg && c->rule_effects.border) {
     int bw_i = (int)c->bw;
     int cw = (int)c->geom.width;
     int ch = (int)c->geom.height;
@@ -2823,7 +2832,8 @@ void resize(Client *c, struct wlr_box geo, int interact) {
   if (c->shadow) {
     bool shadow_visible = cfg.effects.windows.shadows.shadows
         && (cfg.effects.windows.shadows.fullscreen_shadows || !c->isfullscreen)
-        && (!cfg.effects.windows.shadows.only_floating || c->isfloating);
+        && (!cfg.effects.windows.shadows.only_floating || c->isfloating)
+        && c->rule_effects.shadows;
     if (!cfg.effects.windows.shadows.nogaps_shadows && !c->mon->gaps)
       shadow_visible = false;
     else if (!cfg.effects.windows.shadows.nogaps_shadows
@@ -2887,7 +2897,8 @@ void resize(Client *c, struct wlr_box geo, int interact) {
     wlr_scene_blur_set_clipped_region(c->blur, cr);
 
     /* Evaluate blur visibility */
-    bool blur_enabled = cfg.effects.windows.transparency.blur.enabled;
+    bool blur_enabled = cfg.effects.windows.transparency.blur.enabled
+        && c->rule_effects.blur;
     if (!cfg.effects.windows.transparency.blur.nogaps_blur && !c->mon->gaps)
       blur_enabled = false;
     /* smart_gaps edge case */
@@ -3042,8 +3053,8 @@ static void setfullscreen(Client *c, int fullscreen) {
 		if (c->blur)
 			wlr_scene_node_set_enabled(&c->blur->node, false);
 	} else {
-		c->corner_radius = config_get_corner_radius();
-		if (c->border_bg) {
+		c->corner_radius = c->rule_effects.rounding ? config_get_corner_radius() : 0;
+		if (c->border_bg && c->rule_effects.border) {
 			wlr_scene_node_set_enabled(&c->border_bg->node, true);
 		}
 	}
@@ -3286,7 +3297,7 @@ reapply_client_appearance(void)
 	wl_list_for_each(c, &clients, link) {
 		c->bw = !c->isfullscreen ? cfg.appearance.border_px : 0;
 		if (!client_is_unmanaged(c)) {
-		int r = c->isfullscreen ? 0 : config_get_corner_radius();
+		int r = c->isfullscreen ? 0 : (c->rule_effects.rounding ? config_get_corner_radius() : 0);
 		c->corner_radius = r;
 		if (c->border_bg) {
 			if (r > 0 && !c->isfullscreen) {
@@ -3300,7 +3311,7 @@ reapply_client_appearance(void)
 			}
 		}
 			/* Shadow re-apply on config reload */
-			if (cfg.effects.windows.shadows.shadows) {
+			if (cfg.effects.windows.shadows.shadows && c->rule_effects.shadows) {
 				if (!c->shadow) {
 					float sc[4];
 					parse_color_hex(cfg.effects.windows.shadows.shadow_color, sc);
@@ -3329,7 +3340,7 @@ reapply_client_appearance(void)
 				}
 			}
 		/* Blur re-apply on config reload */
-		if (cfg.effects.windows.transparency.blur.enabled) {
+		if (cfg.effects.windows.transparency.blur.enabled && c->rule_effects.blur) {
 			if (!c->blur) {
 				c->blur = wlr_scene_blur_create(c->scene,
 				    (int)(c->geom.width - 2 * (int)c->bw),
@@ -3380,6 +3391,12 @@ reapply_client_rules(void)
 	wl_list_for_each(c, &clients, link) {
 		if (client_is_unmanaged(c))
 			continue;
+
+		/* Reset rule-controlled defaults */
+		c->can_float = true;
+		c->can_fullscreen = true;
+		memset(&c->rule_effects, 0xFF, sizeof(c->rule_effects));
+
 		const char *appid = client_get_appid(c);
 		const char *title = client_get_title(c);
 		for (int ri = 0; ri < cfg.nrules; ri++) {
@@ -3387,6 +3404,10 @@ reapply_client_rules(void)
 			if ((!r->title[0] || strstr(title, r->title)) &&
 			    (!r->app_id[0] || strstr(appid, r->app_id))) {
 				c->isfloating = r->floating | client_is_float_type(c);
+				c->isfullscreen = r->fullscreen;
+				c->can_float = r->can_float;
+				c->can_fullscreen = r->can_fullscreen;
+				memcpy(&c->rule_effects, &r->apply_effects, sizeof(c->rule_effects));
 				if (r->tags) {
 					dwindle_remove_client(c);
 					master_remove_client(c);
@@ -3805,14 +3826,13 @@ static void tagmon(const Arg *arg) {
 
 void togglefloating(const Arg *arg) {
   Client *sel = focustop(selmon);
-  /* return if fullscreen or scratchpad (strictly floating) */
-  if (sel && !sel->isfullscreen && !sel->isscratchpad)
+  if (sel && !sel->isfullscreen && !sel->isscratchpad && sel->can_float)
     setfloating(sel, !sel->isfloating);
 }
 
 void togglefullscreen(const Arg *arg) {
   Client *sel = focustop(selmon);
-  if (sel)
+  if (sel && sel->can_fullscreen)
     setfullscreen(sel, !sel->isfullscreen);
 }
 
