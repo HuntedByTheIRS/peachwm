@@ -31,19 +31,15 @@ jobs:
           libinput \
           lua \
           libxcb \
-          xcb-util-wm \
-          meson \
-          ninja \
-          libglvnd \
-          glslang
+          xcb-util-wm
 
-    - name: Build and install scenefx
+    - name: Install scenefx-wlroots20-git from CachyOS
       run: |
-        git clone https://github.com/wlrfx/scenefx.git /tmp/scenefx
-        cd /tmp/scenefx
-        meson setup build/
-        ninja -C build/
-        ninja -C build/ install
+        echo '[cachyos]' >> /etc/pacman.conf
+        echo 'SigLevel = Never' >> /etc/pacman.conf
+        echo 'Server = https://us.cachyos.org/repo/$arch/$repo' >> /etc/pacman.conf
+        pacman -Sy --noconfirm
+        pacman -S --noconfirm scenefx-wlroots20-git
 
     - name: Test all targets and packaging modes
       run: make test
