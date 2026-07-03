@@ -5,6 +5,8 @@
   - [peachwm](#peachwm-1)
   - [Features](#features)
   - [Dependencies](#dependencies)
+  - [SceneFX effects](#scenefx-effects)
+    - [Features](#features-1)
   - [Configuration](#configuration)
   - [Installation](#installation)
   - [Roadmap](#roadmap)
@@ -30,6 +32,7 @@ PeachWM is maintained by [HuntedByTheIRS](https://github.com/HuntedByTheIRS).
 - libinput
 - wayland
 - wlroots-0.20 (compiled with the libinput backend)
+- [scenefx](https://github.com/wlrfx/scenefx) (for rendering effects)
 - xkbcommon
 - wayland-protocols (compile-time only)
 - pkg-config (compile-time only)
@@ -38,6 +41,18 @@ PeachWM is maintained by [HuntedByTheIRS](https://github.com/HuntedByTheIRS).
 Install these (and their `-devel` versions if your distro has separate
 development packages) and run `make` followed by `doas/sudo make install`,
 if you wish to install it (installs to /usr/local/bin/ by default).
+
+## SceneFX
+
+PeachWM uses [scenefx](https://github.com/wlrfx/scenefx) for rendering
+eye-candy effects on screen. These effects are now considered stable and
+no longer experimental.
+
+### Effects
+
+- **Rounded corners** — smooth, configurable corner rounding on windows
+- **Shadows** — drop shadows for windows
+- More effects are planned and on the way.
 
 ## Configuration
 
