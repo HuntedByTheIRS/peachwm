@@ -3399,6 +3399,9 @@ reapply_client_rules(void)
 	wl_list_for_each(c, &clients, link) {
 		if (client_is_unmanaged(c))
 			continue;
+		c->can_float = true;
+		c->can_fullscreen = true;
+		memset(&c->rule_effects, 0xFF, sizeof(c->rule_effects));
 		const char *appid = client_get_appid(c);
 		const char *title = client_get_title(c);
 		for (int ri = 0; ri < cfg.nrules; ri++) {
@@ -3406,6 +3409,10 @@ reapply_client_rules(void)
 			if ((!r->title[0] || strstr(title, r->title)) &&
 			    (!r->app_id[0] || strstr(appid, r->app_id))) {
 				c->isfloating = r->floating | client_is_float_type(c);
+				c->isfullscreen = r->fullscreen;
+				c->can_float = r->can_float;
+				c->can_fullscreen = r->can_fullscreen;
+				memcpy(&c->rule_effects, &r->apply_effects, sizeof(c->rule_effects));
 				if (r->tags) {
 					dwindle_remove_client(c);
 					master_remove_client(c);
