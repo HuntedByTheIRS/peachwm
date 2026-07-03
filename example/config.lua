@@ -34,8 +34,32 @@ input = {
 }
 
 rules = {
-	--   { app_id = "Gimp",    floating = true,  monitor = -1 },
-	--   { app_id = "firefox", tags = 1 << 8,    floating = false, monitor = -1 },
+	-- Each rule matches when ALL provided fields (app_id, title, etc.)
+	-- match the window. Per-rule apply_effects toggles are overlays on
+	-- the global effects block — both must be ON for the effect to apply.
+	{
+		app_id = "firefox",
+		floating = false,
+		can_float = true,    -- false prevents togglefloating for this window
+		fullscreen = false,
+		can_fullscreen = true,
+		tags = "any",        -- "any" → all tags; or a bitmask like 1 << 3
+		monitor = "default", -- "default" → current monitor; or a number to pin
+		apply_effects = {
+			rounding = true,
+			shadows = false,
+			transparency = false,
+			blur = false,
+			gaps = true,
+			smartgaps = false,
+			border = true,
+			sloppy_focus = false,
+		},
+	},
+
+	--   { app_id = "Gimp",           floating = true,  monitor = -1 },
+	--   { app_id = "firefox",        tags = 1 << 8,    floating = false, monitor = -1 },
+	--   { title = "Calculator",      floating = true,  tags = "any" },
 }
 
 monitors = {
