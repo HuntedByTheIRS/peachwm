@@ -33,7 +33,8 @@ PeachWM is maintained by [HuntedByTheIRS](https://github.com/HuntedByTheIRS).
 - libinput
 - wayland
 - wlroots-0.20 (compiled with the libinput backend)
-- [scenefx](https://github.com/wlrfx/scenefx) (for rendering effects) — **see note below**
+- [scenefx](https://github.com/wlrfx/scenefx)
+(for rendering effects) — **see note below**
 - xkbcommon
 - wayland-protocols (compile-time only)
 - pkg-config (compile-time only)
@@ -79,6 +80,17 @@ sudo ninja -C build install
 The master branch `meson.build` already sets the project version to `0.5.0`
 and produces `libscenefx-0.5.so` with the `scenefx-0.5` pkg-config target.
 No version patching needed.
+
+**Note:** The default meson install prefix is `/usr/local/`. On some distros
+(notably Arch Linux), `pkg-config` does not search `/usr/local/lib/pkgconfig`
+and the linker does not search `/usr/local/lib` by default. If `make` fails
+with `Package scenefx-0.5 was not found`, symlink the installed files:
+
+```bash
+sudo ln -sf /usr/local/lib/pkgconfig/scenefx-0.5.pc /usr/lib/pkgconfig/scenefx-0.5.pc
+sudo ln -sf /usr/local/lib/libscenefx-0.5.so /usr/lib/libscenefx-0.5.so
+sudo ldconfig
+```
 
 **CachyOS users:** Install `scenefx-wlroots20-git` from the
 [CachyOS repo](https://github.com/CachyOS/CachyOS-PKGBUILDS) instead.
