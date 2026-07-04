@@ -114,15 +114,16 @@ void swapdirscratchpad(const Arg *arg) {
 
 	if (sel->isscratchpad) {
 		/* Move FROM scratchpad to current workspace */
-		Client *next = nullptr;
+		Client *next = nullptr, *n;
 		sel->isscratchpad = 0;
 		sel->isfloating = 0;
 		sel->tags = selmon->tagset[selmon->seltags];
 		if (selmon->scratchpad_visible) {
 			/* Find another scratchpad client to show */
-			wl_list_for_each(next, &fstack, flink) {
-				if (next != sel && next->isscratchpad && next->mon == selmon) {
+			wl_list_for_each(n, &fstack, flink) {
+				if (n != sel && n->isscratchpad && n->mon == selmon) {
 					scratchpad_arrange(selmon);
+					next = n;
 					break;
 				}
 			}
