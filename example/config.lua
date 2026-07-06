@@ -76,6 +76,7 @@ monitors = {
 --   },
 -- }
 --
+
 effects = {
 	windows = {
 		corner_radius = 0, -- 0 = off, or a pixel value like 6, 10, 14
@@ -120,6 +121,13 @@ effects = {
 			},
 		},
 	},
+  overview = {
+    scale = 0.3,
+    gaps_between_tags = 40,
+    border_px = 3,
+    dim_unfocused = true,
+    show_empty_tags = false,
+  }
 }
 
 -- autostart: it starts stuff in sequence
@@ -153,6 +161,7 @@ keybinds = {
 	{ mods = { "logo", "shift" }, key = "e", action = "quit" },
 	{ mods = { "logo" }, key = "`", action = "togglescratchpad" },
 	{ mods = { "logo", "shift" }, key = "~", action = "swapdirscratchpad" },
+	{ mods = { "logo" }, key = "o", action = "toggleoverview" },
 }
 
 -- layout switchers (also available: setlayout_dwindle, setlayout_master, setlayout_monocle)
@@ -168,6 +177,7 @@ for i = 1, 9 do
 		mods = { "logo" },
 		key = key,
 		action = "view",
+ in your autostart
 		args = { tostring(mask) },
 	})
 	table.insert(keybinds, {
