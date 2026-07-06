@@ -1,0 +1,14 @@
+Task: 1. Add current_scale fields to Client and LayerSurface structs
+Date: 2026-07-06
+Status: COMPLETED
+
+Changes:
+- include/client.h:49 — float current_scale; added to Client struct (HOT section, after corner_radius)
+- include/client.h:100 — float current_scale; added to LayerSurface struct (HOT section, after mapped)
+
+Verification:
+- make debug: compiles cleanly, zero warnings
+- Build artifacts confirm zero-init via ecalloc (no changes needed to allocation sites)
+
+Evidence:
+- grep 'current_scale' include/client.h → 2 matches (Client + LayerSurface)

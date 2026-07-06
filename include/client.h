@@ -46,6 +46,7 @@ typedef struct Client {
 	struct wlr_box bounds; /* only width and height are used */
 	unsigned int bw;
 	int corner_radius;
+	float current_scale;
 	struct wlr_scene_shadow *shadow;
 	struct wlr_scene_blur *blur;
 
@@ -96,6 +97,7 @@ typedef struct {
 	struct wlr_scene_tree *popups;
 	struct wlr_scene_layer_surface_v1 *scene_layer;
 	int mapped;
+	float current_scale;
 	struct wlr_layer_surface_v1 *layer_surface;
 
 	/* WARM */

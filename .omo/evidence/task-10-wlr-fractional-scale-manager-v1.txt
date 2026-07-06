@@ -1,0 +1,13 @@
+Task: 10. Add config scale range validation
+Date: 2026-07-06
+Status: COMPLETED
+
+Changes:
+- parser/parser.c:374-377 — if scale out of [0.25, 4.0], fprintf warning + clamp to 1.0
+- parser/parser.c:378-379 — if scale > 3.0, fprintf warning about unusually large scale
+- Uses fprintf(stderr, ...) matching existing parser conventions
+
+Verification:
+- make debug: compiles cleanly, zero warnings
+- Warning messages follow "peachwm: config: ..." format used elsewhere in parser.c
+- Post-clamp check prevents double-warning when scale clamped to 1.0

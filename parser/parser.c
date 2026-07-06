@@ -371,6 +371,12 @@ parse_monitors(lua_State *L, Config *cfg)
 		m->mfact   = (float)lua_get_double(L, "mfact",   0.55);
 		m->nmaster =        lua_get_int   (L, "nmaster", 1);
 		m->scale   = (float)lua_get_double(L, "scale",   1.0);
+		if (m->scale < 0.25f || m->scale > 4.0f) {
+			fprintf(stderr, "peachwm: config: monitor '%s' scale %.2f out of range [0.25, 4.0], clamping to 1.0\n", m->name, m->scale);
+			m->scale = 1.0f;
+		}
+		if (m->scale > 3.0f)
+			fprintf(stderr, "peachwm: config: monitor '%s' scale %.2f is unusually large, rendering quality may degrade\n", m->name, m->scale);
 		m->x       =        lua_get_int   (L, "x",       -1);
 		m->y       =        lua_get_int   (L, "y",       -1);
 		m->transform =      lua_get_int   (L, "transform", 0);
