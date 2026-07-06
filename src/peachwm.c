@@ -909,7 +909,7 @@ static void closemon(Monitor *m) {
 
 // ── Compositor Lifecycle ────────────────────────────────────
 
-__attribute__((unused)) static void
+static void
 layersurface_update_scale(LayerSurface *l)
 {
 	struct wlr_surface_output *surface_output;
@@ -964,6 +964,8 @@ static void commitlayersurfacenotify(struct wl_listener *listener, void *data) {
       l->mapped == layer_surface->surface->mapped)
     return;
   l->mapped = layer_surface->surface->mapped;
+
+  layersurface_update_scale(l);
 
   if (scene_layer != l->scene->node.parent) {
     wlr_scene_node_reparent(&l->scene->node, scene_layer);
@@ -4162,6 +4164,42 @@ static void updatemons(struct wl_listener *listener, void *data) {
 
     /* Calculate the effective monitor geometry to use for clients */
     arrangelayers(m);
+
+    /* Re-notify scale on all surfaces after output layout change */
+    {
+      wl_list_for_each(c, &clients, link) {
+        if (c->mon != m)
+          continue;
+        client_update_scale(c);
+        if (!client_is_x11(c) && c->surface.xdg) {
+          struct wlr_xdg_popup *popup;
+          wl_list_for_each(popup, &c->surface.xdg->popups, link)
+            wlr_fractional_scale_v1_notify_scale(
+                popup->base->surface, (double)m->wlr_output->scale);
+        }
+      }
+      for (int i = 0; i < 4; i++) {
+        LayerSurface *l;
+        wl_list_for_each(l, &m->layers[i], link) {
+          layersurface_update_scale(l);
+          {
+            struct wlr_scene_node *popup_node;
+            wl_list_for_each(popup_node, &l->popups->children, link) {
+              if (popup_node->type != WLR_SCENE_NODE_BUFFER)
+                continue;
+              struct wlr_scene_buffer *sb =
+                  wlr_scene_buffer_from_node(popup_node);
+              struct wlr_scene_surface *ss =
+                  wlr_scene_surface_try_from_buffer(sb);
+              if (ss && ss->surface)
+                wlr_fractional_scale_v1_notify_scale(
+                    ss->surface, (double)m->wlr_output->scale);
+            }
+          }
+        }
+      }
+    }
+
     /* Don't move clients to the left output when plugging monitors */
     arrange(m);
     /* make sure fullscreen clients have the right size */

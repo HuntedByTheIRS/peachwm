@@ -353,6 +353,9 @@ client_set_fullscreen(Client *c, int fullscreen)
 void
 client_set_scale(struct wlr_surface *s, float scale)
 {
+	/* XWayland surfaces get ceilf(scale) integer buffer scale — X11 has
+	 * no fractional scale protocol, so wlr_fractional_scale_v1_notify_scale
+	 * is a no-op for them */
 	wlr_fractional_scale_v1_notify_scale(s, scale);
 	wlr_surface_set_preferred_buffer_scale(s, (int32_t)ceilf(scale));
 }
@@ -436,6 +439,7 @@ client_update_scale(Client *c)
 
 	if (fabsf(scale - c->current_scale) > 0.001f) {
 		wlr_fractional_scale_v1_notify_scale(client_surface(c), (double)scale);
+		/* ceilf for XWayland integer buffer scale fallback — see client_set_scale */
 		wlr_surface_set_preferred_buffer_scale(client_surface(c), (int32_t)ceilf(scale));
 		c->current_scale = scale;
 	}
