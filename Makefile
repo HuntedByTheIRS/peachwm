@@ -10,20 +10,12 @@ PKG_CONFIG = pkg-config
 # Print logo on every make invocation
 $(info $(file < LOGO))
 
-# Auto-detect compiler: TCC > Clang > GCC (only if CC not set)
+# Auto-detect compiler: Clang > GCC (only if CC not set via environment)
 ifeq ($(origin CC),default)
-  ifeq ($(shell which tcc 2>/dev/null),)
-    ifeq ($(shell which clang 2>/dev/null),)
-      CC = gcc
-    else
-      CC = clang
-    endif
+  ifeq ($(shell which clang 2>/dev/null),)
+    CC = gcc
   else
-    CC = tcc
-    ifneq ($(shell $(CC) -std=c23 -x c /dev/null -o /dev/null 2>/dev/null; echo $$?),0)
-      $(warning "tcc -std=c23 unsupported, falling back to clang")
-      CC = $(shell which clang 2>/dev/null || which gcc)
-    endif
+    CC = clang
   endif
 endif
 
@@ -41,7 +33,10 @@ CFLAGS   = `$(PKG_CONFIG) --cflags $(PKGS) wlroots-0.20` \
 	-I. -Iinclude -Isrc -Iparser -Iprotocols \
 	-DWLR_USE_UNSTABLE -D_POSIX_C_SOURCE=200809L -DVERSION=\"$(VERSION)\" \
 	$(XWAYLAND) -g -Wall -Wextra -Wno-unused-parameter -O2 -std=c23
+# NOTE: -O3 is intentionally never used — do not add it
 LDLIBS   = `$(PKG_CONFIG) --libs $(PKGS) wlroots-0.20` -lm $(LIBS)
+LDFLAGS ?= -fuse-ld=lld
+STRIP  ?= strip
 
 SMSG_CFLAGS = `$(PKG_CONFIG) --cflags wayland-client` -Wall -Wextra -Wno-unused-parameter -std=c23
 SMSG_LDLIBS = `$(PKG_CONFIG) --libs wayland-client`
@@ -49,21 +44,25 @@ SMSG_LDLIBS = `$(PKG_CONFIG) --libs wayland-client`
 SCANNER   = $(shell $(PKG_CONFIG) --variable=wayland_scanner wayland-scanner)
 WLPROTO   = $(shell $(PKG_CONFIG) --variable=pkgdatadir wayland-protocols)
 
-PROTO_OBJS = protocols/peachwm-ipc-unstable-v2-protocol.o \
-	protocols/ext-workspace-v1-protocol.o
+PROTO_OBJS = objects/protocols/peachwm-ipc-unstable-v2-protocol.o \
+	objects/protocols/ext-workspace-v1-protocol.o
 
 all: peachwm peachmsg/peachmsg
 
 release: CC = clang
+# NOTE: -flto=thin requires Clang; this override ensures it.
 release: CFLAGS += -Werror -Wpedantic -Wmissing-prototypes -Wstrict-prototypes \
 	-Wold-style-definition -Wmissing-declarations -Wimplicit-fallthrough \
 	-Wno-gnu-zero-variadic-macro-arguments \
 	-Wno-c23-extensions \
 	-Wno-extra-semi \
 	-march=native
+release: CFLAGS += -flto=thin
+release: LDFLAGS += -Wl,-O2 -Wl,--gc-sections -Wl,--icf=safe -Wl,-z,now -Wl,--compress-debug-sections=zstd -Wl,--lto-O2 -Wl,--as-needed
 release: peachwm peachmsg/peachmsg
+	$(STRIP) peachwm
+	$(STRIP) peachmsg/peachmsg
 
-debug: CC = clang
 debug: CC = clang
 debug: CFLAGS += -Werror -Weverything \
 	-Wno-padded -Wno-unsafe-buffer-usage \
@@ -90,11 +89,12 @@ debug: peachwm peachmsg/peachmsg
 
 # Compositor
 
-peachwm: src/peachwm.o src/scratchpad.o src/layout.o src/util.o src/client.o src/ipc.o src/ipc_socket.o \
-	parser/parser.o src/ext_workspace.o src/wlr_ext_workspace_v1.o $(PROTO_OBJS)
+peachwm: objects/src/peachwm.o objects/src/scratchpad.o objects/src/layout.o objects/src/util.o \
+	objects/src/client.o objects/src/ipc.o objects/src/ipc_socket.o \
+	objects/parser/parser.o objects/src/ext_workspace.o objects/src/wlr_ext_workspace_v1.o $(PROTO_OBJS)
 	$(CC) $^ $(LDFLAGS) $(LDLIBS) -o $@
 
-src/peachwm.o: src/peachwm.c include/client.h include/ipc.h \
+objects/src/peachwm.o: src/peachwm.c include/client.h include/ipc.h \
 	include/ipc_socket.h include/ext_workspace.h \
 	src/wlr_ext_workspace_v1.h parser/parser.h \
 	protocols/peachwm-ipc-unstable-v2-protocol.h \
@@ -104,38 +104,49 @@ src/peachwm.o: src/peachwm.c include/client.h include/ipc.h \
 	protocols/wlr-layer-shell-unstable-v1-protocol.h \
 	protocols/wlr-output-power-management-unstable-v1-protocol.h \
 	protocols/xdg-shell-protocol.h
+	mkdir -p objects/src
 	$(CC) $(CFLAGS) -o $@ -c $<
 
-src/scratchpad.o: src/scratchpad.c src/scratchpad.h include/monitor.h include/client.h src/layout.h
+objects/src/scratchpad.o: src/scratchpad.c src/scratchpad.h include/monitor.h include/client.h src/layout.h
+	mkdir -p objects/src
 	$(CC) $(CFLAGS) -o $@ -c $<
 
-src/layout.o: src/layout.c src/layout.h include/monitor.h include/client.h
+objects/src/layout.o: src/layout.c src/layout.h include/monitor.h include/client.h
+	mkdir -p objects/src
 	$(CC) $(CFLAGS) -o $@ -c $<
 
-src/util.o: src/util.c src/util.h
+objects/src/util.o: src/util.c src/util.h
+	mkdir -p objects/src
 	$(CC) $(CFLAGS) -o $@ -c $<
 
-src/client.o: src/client.c include/client.h include/monitor.h
+objects/src/client.o: src/client.c include/client.h include/monitor.h
+	mkdir -p objects/src
 	$(CC) $(CFLAGS) -o $@ -c $<
 
-src/ipc.o: src/ipc.c include/ipc.h include/monitor.h
+objects/src/ipc.o: src/ipc.c include/ipc.h include/monitor.h
+	mkdir -p objects/src
 	$(CC) $(CFLAGS) -o $@ -c $<
 
-src/ipc_socket.o: src/ipc_socket.c include/ipc_socket.h \
+objects/src/ipc_socket.o: src/ipc_socket.c include/ipc_socket.h \
 	include/ipc.h include/client.h include/monitor.h src/util.h
+	mkdir -p objects/src
 	$(CC) $(CFLAGS) -o $@ -c $<
 
-src/wlr_ext_workspace_v1.o: src/wlr_ext_workspace_v1.c \
+objects/src/wlr_ext_workspace_v1.o: src/wlr_ext_workspace_v1.c \
 	src/wlr_ext_workspace_v1.h protocols/ext-workspace-v1-protocol.h
+	mkdir -p objects/src
 	$(CC) $(CFLAGS) -o $@ -c $<
 
-src/ext_workspace.o: src/ext_workspace.c include/ext_workspace.h include/monitor.h
+objects/src/ext_workspace.o: src/ext_workspace.c include/ext_workspace.h include/monitor.h
+	mkdir -p objects/src
 	$(CC) $(CFLAGS) -o $@ -c $<
 
-parser/parser.o: parser/parser.c parser/parser.h
+objects/parser/parser.o: parser/parser.c parser/parser.h
+	mkdir -p objects/parser
 	$(CC) $(CFLAGS) -o $@ -c $<
 
-$(PROTO_OBJS): protocols/%-protocol.o: protocols/%-protocol.c protocols/%-protocol.h
+$(PROTO_OBJS): objects/protocols/%-protocol.o: protocols/%-protocol.c protocols/%-protocol.h
+	mkdir -p objects/protocols
 	$(CC) $(CFLAGS) -o $@ -c $<
 
 # Protocol headers and glue code
@@ -179,18 +190,22 @@ peachmsg/peachwm-ipc-unstable-v2-protocol.h: protocols/peachwm-ipc-unstable-v2.x
 peachmsg/peachwm-ipc-unstable-v2-protocol.c: protocols/peachwm-ipc-unstable-v2.xml
 	$(SCANNER) private-code $< $@
 
-peachmsg/peachwm-ipc-unstable-v2-protocol.o: peachmsg/peachwm-ipc-unstable-v2-protocol.c peachmsg/peachwm-ipc-unstable-v2-protocol.h
+objects/peachmsg/peachwm-ipc-unstable-v2-protocol.o: peachmsg/peachwm-ipc-unstable-v2-protocol.c peachmsg/peachwm-ipc-unstable-v2-protocol.h
+	mkdir -p objects/peachmsg
 	$(CC) $(SMSG_CFLAGS) -o $@ -c $<
 
-peachmsg/peachmsg.o: peachmsg/peachmsg.c peachmsg/peachwm-ipc-unstable-v2-protocol.h
+objects/peachmsg/peachmsg.o: peachmsg/peachmsg.c peachmsg/peachwm-ipc-unstable-v2-protocol.h
+	mkdir -p objects/peachmsg
 	$(CC) $(SMSG_CFLAGS) -o $@ -c $<
 
-peachmsg/peachmsg: peachmsg/peachmsg.o peachmsg/peachwm-ipc-unstable-v2-protocol.o
-	$(CC) $^ $(SMSG_CFLAGS) $(SMSG_LDLIBS) -o $@
+peachmsg/peachmsg: objects/peachmsg/peachmsg.o objects/peachmsg/peachwm-ipc-unstable-v2-protocol.o
+	$(CC) $^ $(LDFLAGS) $(SMSG_CFLAGS) $(SMSG_LDLIBS) -o $@
 
 clean:
-	rm -f peachwm peachmsg/peachmsg src/*.o parser/*.o peachmsg/*.o \
-		protocols/*.o protocols/*-protocol.h protocols/*-protocol.c \
+	rm -f peachwm peachmsg/peachmsg
+	rm -rf objects
+	rm -f src/*.o parser/*.o peachmsg/*.o protocols/*.o
+	rm -f protocols/*-protocol.h protocols/*-protocol.c \
 		peachmsg/*-protocol.h peachmsg/*-protocol.c
 	rm -f peachwm-*.tar.gz peachwm-*.pkg.tar.* peachwm_*.deb peachwm-*.rpm
 	rm -rf _pkg packaging
@@ -225,6 +240,7 @@ _pkg-tarball:
 	$(MAKE) release
 	rm -rf peachwm-$(VERSION)
 	mkdir -p peachwm-$(VERSION)
+	find src parser protocols peachmsg -maxdepth 1 -name '*.o' -delete
 	cp -r .gitignore Makefile LICENSE README.md include src parser protocols peachmsg example peachwm.desktop peachwm-$(VERSION)/
 	cp peachwm peachwm-$(VERSION)/
 	tar -czf peachwm-$(VERSION).tar.gz peachwm-$(VERSION)

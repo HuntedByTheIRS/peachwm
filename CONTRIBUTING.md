@@ -73,9 +73,11 @@ PeachWM follows a consistent style throughout the codebase. Please match it.
 ### Build and Compiler
 
 - The project uses **C23** (`-std=c23`).
-- The **Makefile** is POSIX make. Do not introduce autotools, CMake, or meson.
-- Ensure your code compiles cleanly with `make debug` and `make release` --
-  CI checks both targets.
+- The **Makefile** uses GNU make extensions (`.ONESHELL`, `ifeq`, target-specific
+  variables). Do not introduce autotools, CMake, or meson.
+- Ensure your code compiles cleanly with `make debug` and `make release` -- the
+  project requires Clang (default) and the LLD linker for building. CI checks
+  both targets.
 
 These guidelines are suggestions, not hard rules. When in doubt, match the
 style of the surrounding code.

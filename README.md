@@ -38,7 +38,8 @@ PeachWM is maintained by [HuntedByTheIRS](https://github.com/HuntedByTheIRS).
 - xkbcommon
 - wayland-protocols (compile-time only)
 - pkg-config (compile-time only)
-- a C23 compiler — GCC 14+ or Clang 18+ (clang recommended)
+- a C23 compiler — Clang 18+ (default) or GCC 14+
+- LLD linker (for linking; part of LLVM)
 
 Install these (and their `-devel` versions if your distro has separate
 development packages) and run `make` followed by `doas/sudo make install`,
