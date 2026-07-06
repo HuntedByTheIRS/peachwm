@@ -1,0 +1,16 @@
+Task: 2. Create client_update_scale(Client *c) function
+Date: 2026-07-06
+Status: COMPLETED
+
+Changes:
+- include/client.h:133 — declaration added
+- src/client.c:418-442 — implementation with current_outputs max scale iteration
+  - Guards: null client, unmapped surface → return
+  - Iterates current_outputs for max scale across visible outputs
+  - Fallback to c->mon->wlr_output->scale or 1.0f
+  - Safety guard: scale <= 0.0f → return
+  - fabsf tolerance check before notify
+  - Calls both wlr_fractional_scale_v1_notify_scale + wlr_surface_set_preferred_buffer_scale(ceilf)
+- src/peachwm.c:995 — c->current_scale initialized after client_set_scale() in commitnotify()
+
+Verification: make debug — compiles cleanly, zero warnings
