@@ -3162,9 +3162,10 @@ static void setmon(Client *c, Monitor *m, uint32_t newtags) {
   if (oldmon == m)
     return;
   c->mon = m;
-  c->prev = c->geom;
+	c->prev = c->geom;
+	client_update_scale(c);
 
-  /* Scene graph sends surface leave/enter events on move and resize */
+	/* Scene graph sends surface leave/enter events on move and resize */
   if (oldmon)
     arrange(oldmon);
   if (m) {
@@ -3311,6 +3312,20 @@ reapply_monitor_config(void)
 				wlr_output_state_set_transform(&state, r->transform);
 				wlr_output_commit_state(m->wlr_output, &state);
 				wlr_output_state_finish(&state);
+				/* Re-notify surfaces on this monitor of new scale */
+				{
+					Client *c;
+					wl_list_for_each(c, &clients, link) {
+						if (c->mon == m)
+							client_update_scale(c);
+					}
+					for (int i = 0; i < 4; i++) {
+						LayerSurface *l;
+						wl_list_for_each(l, &m->layers[i], link) {
+							layersurface_update_scale(l);
+						}
+					}
+				}
 				/* Update position */
 				if (r->x != -1 && r->y != -1)
 					wlr_output_layout_add(output_layout, m->wlr_output, r->x, r->y);
