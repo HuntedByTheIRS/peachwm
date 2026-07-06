@@ -38,7 +38,7 @@ LDLIBS   = `$(PKG_CONFIG) --libs $(PKGS) wlroots-0.20` -lm $(LIBS)
 LDFLAGS ?= -fuse-ld=lld
 STRIP  ?= strip
 
-.PHONY: all clean debug release install uninstall test package
+.PHONY: all clean debug release install uninstall test test_scale package
 
 SMSG_CFLAGS = `$(PKG_CONFIG) --cflags wayland-client` -Wall -Wextra -Wno-unused-parameter -std=c23 -MMD -MP
 SMSG_LDLIBS = `$(PKG_CONFIG) --libs wayland-client`
@@ -204,7 +204,7 @@ peachmsg/peachmsg: objects/peachmsg/peachmsg.o objects/peachmsg/peachwm-ipc-unst
 	$(CC) $^ $(LDFLAGS) $(SMSG_CFLAGS) $(SMSG_LDLIBS) -o $@
 
 clean:
-	rm -f peachwm peachmsg/peachmsg
+	rm -f peachwm peachmsg/peachmsg test_scale
 	rm -rf objects
 	find objects -name '*.d' -delete 2>/dev/null || true
 	rm -f src/*.o parser/*.o peachmsg/*.o protocols/*.o
@@ -561,3 +561,7 @@ test:
 		$(MAKE) package DISTRO=$$distro && $(MAKE) clean || { echo "FAIL: DISTRO=$$distro"; exit 1; }; \
 	done
 	@echo "=== All tests passed ==="
+
+test_scale:
+	$(CC) $(CFLAGS) -Wno-unused-parameter -lm test/test_scale.c -o test_scale
+	./test_scale
