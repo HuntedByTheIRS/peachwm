@@ -42,8 +42,14 @@ PeachWM is maintained by [HuntedByTheIRS](https://github.com/HuntedByTheIRS).
 - LLD linker (for linking; part of LLVM)
 
 Install these (and their `-devel` versions if your distro has separate
-development packages) and run `make` followed by `doas/sudo make install`,
-if you wish to install it (installs to /usr/local/bin/ by default).
+development packages). The project requires **Clang** and the **LLD linker**
+(both part of LLVM; install the `clang` and `lld` packages for your distro).
+
+For a development build with debug symbols and sanitizers, run `make` (which
+uses the `all` target). For a production install, use `make release` to get an
+optimized, stripped binary with LTO and linker hardening.
+
+Then run `doas/sudo make install` to install to `/usr/local/bin` by default.
 
 ## SceneFX
 
