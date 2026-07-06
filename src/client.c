@@ -414,6 +414,33 @@ client_wants_focus(Client *c)
 #endif
 }
 
+void
+client_update_scale(Client *c)
+{
+	struct wlr_surface_output *surface_output;
+	float scale;
+
+	if (!c || !client_surface(c)->mapped)
+		return;
+
+	scale = 0.0f;
+	wl_list_for_each(surface_output, &client_surface(c)->current_outputs, link)
+		if (surface_output->output->scale > scale)
+			scale = surface_output->output->scale;
+
+	if (scale <= 0.0f)
+		scale = c->mon ? c->mon->wlr_output->scale : 1.0f;
+
+	if (scale <= 0.0f)
+		return;
+
+	if (fabsf(scale - c->current_scale) > 0.001f) {
+		wlr_fractional_scale_v1_notify_scale(client_surface(c), (double)scale);
+		wlr_surface_set_preferred_buffer_scale(client_surface(c), (int32_t)ceilf(scale));
+		c->current_scale = scale;
+	}
+}
+
 int
 client_wants_fullscreen(Client *c)
 {

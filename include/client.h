@@ -130,6 +130,7 @@ void client_send_close(Client *c);
 void client_set_border_color(Client *c, const float color[static 4]);
 void client_set_fullscreen(Client *c, int fullscreen);
 void client_set_scale(struct wlr_surface *s, float scale);
+void client_update_scale(Client *c);
 uint32_t client_set_size(Client *c, uint32_t width, uint32_t height);
 void client_set_tiled(Client *c, uint32_t edges);
 void client_set_suspended(Client *c, int suspended);

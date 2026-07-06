@@ -909,6 +909,37 @@ static void closemon(Monitor *m) {
 
 // ── Compositor Lifecycle ────────────────────────────────────
 
+__attribute__((unused)) static void
+layersurface_update_scale(LayerSurface *l)
+{
+	struct wlr_surface_output *surface_output;
+	float scale;
+
+	if (!l || !l->layer_surface->surface->mapped)
+		return;
+
+	scale = 0.0f;
+	wl_list_for_each(surface_output,
+	    &l->layer_surface->surface->current_outputs, link)
+		if (surface_output->output->scale > scale)
+			scale = surface_output->output->scale;
+
+	/* Fallback to assigned monitor if surface is not on any output */
+	if (scale <= 0.0f)
+		scale = l->mon ? l->mon->wlr_output->scale : 1.0f;
+
+	if (scale <= 0.0f)
+		return;
+
+	if (fabsf(scale - l->current_scale) > 0.001f) {
+		wlr_fractional_scale_v1_notify_scale(l->layer_surface->surface,
+		    (double)scale);
+		wlr_surface_set_preferred_buffer_scale(l->layer_surface->surface,
+		    (int32_t)ceilf(scale));
+		l->current_scale = scale;
+	}
+}
+
 static void commitlayersurfacenotify(struct wl_listener *listener, void *data) {
   LayerSurface *l = wl_container_of(listener, l, surface_commit);
   struct wlr_layer_surface_v1 *layer_surface = l->layer_surface;
@@ -918,6 +949,7 @@ static void commitlayersurfacenotify(struct wl_listener *listener, void *data) {
 
   if (l->layer_surface->initial_commit) {
     client_set_scale(layer_surface->surface, l->mon->wlr_output->scale);
+    l->current_scale = l->mon->wlr_output->scale;
 
     /* Temporarily set the layer's current state to pending
      * so that we can easily arrange it */
@@ -960,6 +992,7 @@ static void commitnotify(struct wl_listener *listener, void *data) {
     applyrules(c);
     if (c->mon) {
       client_set_scale(client_surface(c), c->mon->wlr_output->scale);
+      c->current_scale = c->mon->wlr_output->scale;
     }
     setmon(c, nullptr, 0); /* Make sure to reapply rules in mapnotify() */
 
