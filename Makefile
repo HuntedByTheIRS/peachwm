@@ -32,13 +32,15 @@ PKGS    = wayland-server xkbcommon libinput $(LUA_PKG) $(XLIBS) scenefx-0.5
 CFLAGS   = `$(PKG_CONFIG) --cflags $(PKGS) wlroots-0.20` \
 	-I. -Iinclude -Isrc -Iparser -Iprotocols \
 	-DWLR_USE_UNSTABLE -D_POSIX_C_SOURCE=200809L -DVERSION=\"$(VERSION)\" \
-	$(XWAYLAND) -g -Wall -Wextra -Wno-unused-parameter -O2 -std=c23
+	$(XWAYLAND) -g -Wall -Wextra -Wno-unused-parameter -O2 -std=c23 -MMD -MP
 # NOTE: -O3 is intentionally never used — do not add it
 LDLIBS   = `$(PKG_CONFIG) --libs $(PKGS) wlroots-0.20` -lm $(LIBS)
 LDFLAGS ?= -fuse-ld=lld
 STRIP  ?= strip
 
-SMSG_CFLAGS = `$(PKG_CONFIG) --cflags wayland-client` -Wall -Wextra -Wno-unused-parameter -std=c23
+.PHONY: all clean debug release install uninstall test package
+
+SMSG_CFLAGS = `$(PKG_CONFIG) --cflags wayland-client` -Wall -Wextra -Wno-unused-parameter -std=c23 -MMD -MP
 SMSG_LDLIBS = `$(PKG_CONFIG) --libs wayland-client`
 
 SCANNER   = $(shell $(PKG_CONFIG) --variable=wayland_scanner wayland-scanner)
@@ -204,6 +206,7 @@ peachmsg/peachmsg: objects/peachmsg/peachmsg.o objects/peachmsg/peachwm-ipc-unst
 clean:
 	rm -f peachwm peachmsg/peachmsg
 	rm -rf objects
+	find objects -name '*.d' -delete 2>/dev/null || true
 	rm -f src/*.o parser/*.o peachmsg/*.o protocols/*.o
 	rm -f protocols/*-protocol.h protocols/*-protocol.c \
 		peachmsg/*-protocol.h peachmsg/*-protocol.c
@@ -542,6 +545,9 @@ package: _pkg-tarball
 			echo "Unknown DISTRO '$(DISTRO)'. Supported: arch, debian, fedora, opensuse, gentoo, void"; \
 			exit 1 ;; \
 	esac
+
+# Auto-generated header dependencies
+-include $(wildcard objects/src/*.d objects/parser/*.d objects/protocols/*.d objects/peachmsg/*.d)
 
 test:
 	@for target in all debug release; do \
