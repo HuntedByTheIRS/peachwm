@@ -21,8 +21,8 @@ jobs:
         pacman -S --noconfirm --needed \
           base-devel \
           git \
-          tcc \
           clang \
+          lld \
           pkg-config \
           wayland \
           wayland-protocols \
