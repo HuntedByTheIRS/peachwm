@@ -147,7 +147,7 @@ client_get_appid(Client *c)
 {
 #ifdef XWAYLAND
 	if (client_is_x11(c))
-		return c->surface.xwayland->class ? c->surface.xwayland->class : "broken";
+		return c->surface.xwayland->cls ? c->surface.xwayland->cls : "broken";
 #endif
 	return c->surface.xdg->toplevel->app_id ? c->surface.xdg->toplevel->app_id : "broken";
 }
